@@ -34,3 +34,6 @@ intellij-plugin/djinni.jar
 
 # profiling output
 callgrind.out.*
+
+# VSCode files
+.vscode
