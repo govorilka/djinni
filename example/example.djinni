@@ -8,6 +8,11 @@ sort_order = enum {
     random;
 }
 
+cpp_context = private_interface {
+    typeName: "std::shared_ptr<Context>";
+    header: "mylib/context.hpp";
+}
+
 sort_items = interface +c {
     # For the iOS / Android demo
     sort(order: sort_order, items: item_list);
@@ -15,6 +20,9 @@ sort_items = interface +c {
 
     # For the localhost / command-line demo
     static run_sort(items: item_list): item_list;
+
+    get_context(): cpp_context;
+    set_context(context: cpp_context);
 }
 
 textbox_listener = interface +j +o {

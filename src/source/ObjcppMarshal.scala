@@ -33,13 +33,13 @@ class ObjcppMarshal(spec: Spec) extends Marshal(spec) {
   def references(m: Meta): Seq[SymbolReference] = m match {
     case o: MOpaque =>
       List(ImportRef(q(spec.objcBaseLibIncludePrefix + "DJIMarshal+Private.h")))
-    case d: MDef => d.defType match {
-      case DEnum | DInterface =>
-        List(ImportRef(include(m)))
-      case DRecord =>
-        val r = d.body.asInstanceOf[Record]
+    case d: MDef => d.body match {
+      case e: Enum => List(ImportRef(include(m)))
+      case i: Interface => List(ImportRef(include(m)))
+      case r: Record =>
         val objcName = d.name + (if (r.ext.objc) "_base" else "")
         List(ImportRef(q(spec.objcppIncludePrefix + privateHeaderName(objcName))))
+      case _ => throw new AssertionError("Unreachable")
     }
     case e: MExtern => List(ImportRef(e.objcpp.header))
     case p: MParam => List()
@@ -58,8 +58,8 @@ class ObjcppMarshal(spec: Spec) extends Marshal(spec) {
   def privateHeaderName(ident: String): String = idObjc.ty(ident) + "+Private." + spec.objcHeaderExt
 
   def helperName(tm: MExpr): String = tm.base match {
-    case d: MDef => d.defType match {
-      case DEnum => withNs(Some("djinni"), s"Enum<${cppMarshal.fqTypename(tm)}, ${objcMarshal.fqTypename(tm)}>")
+    case d: MDef => d.body match {
+      case e: Enum => withNs(Some("djinni"), s"Enum<${cppMarshal.fqTypename(tm)}, ${objcMarshal.fqTypename(tm)}>")
       case _ => withNs(Some(spec.objcppNamespace), helperClass(d.name))
     }
     case e: MExtern => e.objcpp.translator

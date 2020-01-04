@@ -4,6 +4,7 @@
 #pragma once
 
 #include <memory>
+#include <mylib/context.hpp>
 
 namespace textsort {
 
@@ -22,6 +23,10 @@ public:
 
     /** For the localhost / command-line demo */
     static ItemList run_sort(const ItemList & items);
+
+    virtual std::shared_ptr<Context> get_context() = 0;
+
+    virtual void set_context(const std::shared_ptr<Context> & context) = 0;
 };
 
 }  // namespace textsort

@@ -46,11 +46,16 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
 
   private def write(w: IndentWriter, td: TypeDecl) {
     write(w, preamble(td))
-    w.wl("cpp:").nested { write(w, cpp(td)) }
-    w.wl("objc:").nested { write(w, objc(td)) }
-    w.wl("objcpp:").nested { write(w, objcpp(td)) }
-    w.wl("java:").nested { write(w, java(td)) }
-    w.wl("jni:").nested { write(w, jni(td)) }
+    td.body match {
+      case p: PrivateInterface => 
+        w.wl("cpp:").nested { write(w, cpp(td)) }
+      case _ => 
+        w.wl("cpp:").nested { write(w, cpp(td)) }
+        w.wl("objc:").nested { write(w, objc(td)) }
+        w.wl("objcpp:").nested { write(w, objcpp(td)) }
+        w.wl("java:").nested { write(w, java(td)) }
+        w.wl("jni:").nested { write(w, jni(td)) }
+    }
   }
 
   private def write(w: IndentWriter, m: Map[String, Any]) {
@@ -107,6 +112,7 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
     td.body match {
       case i: Interface => "interface" + ext(i.ext)
       case r: Record => "record" + ext(r.ext) + deriving(r)
+      case p: PrivateInterface => "privateInterface"
       case Enum(_, false) => "enum"
       case Enum(_, true) => "flags"
     }
@@ -115,7 +121,7 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
   private def cpp(td: TypeDecl) = Map[String, Any](
     "typename" -> QuotedString(cppMarshal.fqTypename(td.ident, td.body)),
     "header" -> QuotedString(cppMarshal.include(td.ident, td.body)),
-    "byValue" -> cppMarshal.byValue(td)
+    "byValue" -> cppMarshal.byValue(td.body)
   )
 
   private def objc(td: TypeDecl) = Map[String, Any](
@@ -151,14 +157,7 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
   // TODO: there has to be a way to do all this without the MExpr/Meta conversions?
   private def mexpr(td: TypeDecl) = MExpr(meta(td), List())
 
-  private def meta(td: TypeDecl) = {
-    val defType = td.body match {
-      case i: Interface => DInterface
-      case r: Record => DRecord
-      case e: Enum => DEnum
-    }
-    MDef(td.ident, 0, defType, td.body)
-  }
+  private def meta(td: TypeDecl) = MDef(td.ident, 0, td.body)
 
   override def generate(idl: Seq[TypeDecl]) {
     val internOnly = idl.collect { case itd: InternTypeDecl => itd }.sortWith(_.ident.name < _.ident.name)
@@ -185,46 +184,83 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
 }
 
 object YamlGenerator {
-  def metaFromYaml(td: ExternTypeDecl) = MExtern(
-    td.ident.name.stripPrefix(td.properties("prefix").toString), // Make sure the generator uses this type with its original name for all intents and purposes
-    td.params.size,
-    defType(td),
-    td.body,
-    MExtern.Cpp(
-      nested(td, "cpp")("typename").toString,
-      nested(td, "cpp")("header").toString,
-      nested(td, "cpp")("byValue").asInstanceOf[Boolean]),
-    MExtern.Objc(
-      nested(td, "objc")("typename").toString,
-      nested(td, "objc")("header").toString,
-      nested(td, "objc")("boxed").toString,
-      nested(td, "objc")("pointer").asInstanceOf[Boolean],
-      nested(td, "objc")("hash").toString),
-    MExtern.Objcpp(
-      nested(td, "objcpp")("translator").toString,
-      nested(td, "objcpp")("header").toString),
-    MExtern.Java(
-      nested(td, "java")("typename").toString,
-      nested(td, "java")("boxed").toString,
-      nested(td, "java")("reference").asInstanceOf[Boolean],
-      nested(td, "java")("generic").asInstanceOf[Boolean],
-      nested(td, "java")("hash").toString,
-      if (nested(td, "java") contains "writeToParcel") nested(td, "java")("writeToParcel").toString else "%s.writeToParcel(out, flags)",
-      if (nested(td, "java") contains "readFromParcel") nested(td, "java")("readFromParcel").toString else "new %s(in)"),
-    MExtern.Jni(
-      nested(td, "jni")("translator").toString,
-      nested(td, "jni")("header").toString,
-      nested(td, "jni")("typename").toString,
-      nested(td, "jni")("typeSignature").toString)
-  )
+  def metaFromYaml(td: ExternTypeDecl) = td.body match {
+    case p: PrivateInterface => 
+      MExtern (
+        td.ident.name.stripPrefix(td.properties("prefix").toString), // Make sure the generator uses this type with its original name for all intents and purposes
+        td.params.size,
+        td.body,
+        MExtern.Cpp(
+          nested(td, "cpp")("typename").toString,
+          nested(td, "cpp")("header").toString,
+          nested(td, "cpp")("byValue").asInstanceOf[Boolean]),
+        MExtern.Objc(
+          "",
+          "",
+          "",
+          false,
+          ""
+        ),
+        MExtern.Objcpp(
+          "",
+          ""
+        ),
+        MExtern.Java(
+          "",
+          "",
+          false,
+          false,
+          "",
+          "",
+          ""
+        ),
+        MExtern.Jni(
+          "",
+          "",
+          "",
+          ""
+        )
+      )
+    case _ =>
+      MExtern (
+        td.ident.name.stripPrefix(td.properties("prefix").toString), // Make sure the generator uses this type with its original name for all intents and purposes
+        td.params.size,
+        td.body,
+        MExtern.Cpp(
+          nested(td, "cpp")("typename").toString,
+          nested(td, "cpp")("header").toString,
+          nested(td, "cpp")("byValue").asInstanceOf[Boolean]
+        ),
+        MExtern.Objc(
+          nested(td, "objc")("typename").toString,
+          nested(td, "objc")("header").toString,
+          nested(td, "objc")("boxed").toString,
+          nested(td, "objc")("pointer").asInstanceOf[Boolean],
+          nested(td, "objc")("hash").toString
+        ),
+        MExtern.Objcpp(
+          nested(td, "objcpp")("translator").toString,
+          nested(td, "objcpp")("header").toString
+        ),
+        MExtern.Java(
+          nested(td, "java")("typename").toString,
+          nested(td, "java")("boxed").toString,
+          nested(td, "java")("reference").asInstanceOf[Boolean],
+          nested(td, "java")("generic").asInstanceOf[Boolean],
+          nested(td, "java")("hash").toString,
+          if (nested(td, "java") contains "writeToParcel") nested(td, "java")("writeToParcel").toString else "%s.writeToParcel(out, flags)",
+          if (nested(td, "java") contains "readFromParcel") nested(td, "java")("readFromParcel").toString else "new %s(in)"
+        ),
+        MExtern.Jni(
+          nested(td, "jni")("translator").toString,
+          nested(td, "jni")("header").toString,
+          nested(td, "jni")("typename").toString,
+          nested(td, "jni")("typeSignature").toString
+        )
+      )
+  }
 
   private def nested(td: ExternTypeDecl, key: String) = {
     td.properties.get(key).collect { case m: JMap[_, _] => m.collect { case (k: String, v: Any) => (k, v) } } getOrElse(Map[String, Any]())
-  }
-
-  private def defType(td: ExternTypeDecl) = td.body match {
-    case i: Interface => DInterface
-    case r: Record => DRecord
-    case e: Enum => DEnum
   }
 }

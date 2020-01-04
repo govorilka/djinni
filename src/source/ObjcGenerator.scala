@@ -86,8 +86,10 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
   override def generateInterface(origin: String, ident: Ident, doc: Doc, typeParams: Seq[TypeParam], i: Interface) {
     val refs = new ObjcRefs()
     i.methods.map(m => {
-      m.params.map(p => refs.find(p.ty))
-      m.ret.foreach(refs.find)
+      if (!isCppOnly(m)) {
+        m.params.map(p => refs.find(p.ty))
+        m.ret.foreach(refs.find)
+      }
     })
     i.consts.map(c => {
       refs.find(c.ty)
@@ -116,10 +118,12 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
       writeDoc(w, doc)
       if (i.ext.objc) w.wl(s"@protocol $self") else w.wl(s"@interface $self : NSObject")
       for (m <- i.methods) {
-        w.wl
-        writeMethodDoc(w, m, idObjc.local)
-        writeObjcFuncDecl(m, w)
-        w.wl(";")
+        if (!isCppOnly(m)) {
+          w.wl
+          writeMethodDoc(w, m, idObjc.local)
+          writeObjcFuncDecl(m, w)
+          w.wl(";")
+        }
       }
       for (c <- i.consts if !marshal.canBeConstVariable(c)) {
         w.wl
@@ -272,7 +276,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
                 case MMap => w.w(s"[self.${idObjc.field(f.ident)} isEqualToDictionary:typedOther.${idObjc.field(f.ident)}]")
                 case MOptional =>
                   f.ty.resolved.args.head.base match {
-                    case df: MDef if df.defType == DEnum =>
+                    case df: MDef if df.body == Enum =>
                       w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
                     case _ =>
                       w.w(s"((self.${idObjc.field(f.ident)} == nil && typedOther.${idObjc.field(f.ident)} == nil) || ")
@@ -281,18 +285,18 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
                 case MString => w.w(s"[self.${idObjc.field(f.ident)} isEqualToString:typedOther.${idObjc.field(f.ident)}]")
                 case MDate => w.w(s"[self.${idObjc.field(f.ident)} isEqualToDate:typedOther.${idObjc.field(f.ident)}]")
                 case t: MPrimitive => w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
-                case df: MDef => df.defType match {
-                  case DRecord => w.w(s"[self.${idObjc.field(f.ident)} isEqual:typedOther.${idObjc.field(f.ident)}]")
-                  case DEnum => w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
+                case df: MDef => df.body match {
+                  case r: Record => w.w(s"[self.${idObjc.field(f.ident)} isEqual:typedOther.${idObjc.field(f.ident)}]")
+                  case e: Enum => w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
                   case _ => throw new AssertionError("Unreachable")
                 }
-                case e: MExtern => e.defType match {
-                  case DRecord => if(e.objc.pointer) {
+                case e: MExtern => e.body match {
+                  case r: Record => if(e.objc.pointer) {
                       w.w(s"[self.${idObjc.field(f.ident)} isEqual:typedOther.${idObjc.field(f.ident)}]")
                     } else {
                       w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
                     }
-                  case DEnum => w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
+                  case e: Enum => w.w(s"self.${idObjc.field(f.ident)} == typedOther.${idObjc.field(f.ident)}")
                   case _ => throw new AssertionError("Unreachable")
                 }
                 case _ => throw new AssertionError("Unreachable")
@@ -312,18 +316,18 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
               f.ty.resolved.base match {
                 case MOptional =>
                   f.ty.resolved.args.head.base match {
-                    case df: MDef if df.defType == DEnum =>
+                    case df: MDef if df.body == Enum =>
                       w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
                     case _ => w.w(s"self.${idObjc.field(f.ident)}.hash")
                   }
                 case t: MPrimitive => w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
-                case df: MDef => df.defType match {
-                  case DEnum => w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
+                case df: MDef => df.body match {
+                  case e: Enum => w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
                   case _ => w.w(s"self.${idObjc.field(f.ident)}.hash")
                 }
-                case e: MExtern => e.defType match {
-                  case DEnum => w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
-                  case DRecord => w.w("(" + e.objc.hash.format("self." + idObjc.field(f.ident)) + ")")
+                case e: MExtern => e.body match {
+                  case e: Enum => w.w(s"(NSUInteger)self.${idObjc.field(f.ident)}")
+                  case r: Record => w.w("(" + e.objc.hash.format("self." + idObjc.field(f.ident)) + ")")
                   case _ => throw new AssertionError("Unreachable")
                 }
                 case _ => w.w(s"self.${idObjc.field(f.ident)}.hash")
@@ -355,14 +359,14 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
             f.ty.resolved.base match {
               case MString | MDate => w.wl(s"tempResult = [self.${idObjc.field(f.ident)} compare:other.${idObjc.field(f.ident)}];")
               case t: MPrimitive => generatePrimitiveOrder(f.ident, w)
-              case df: MDef => df.defType match {
-                case DRecord => w.wl(s"tempResult = [self.${idObjc.field(f.ident)} compare:other.${idObjc.field(f.ident)}];")
-                case DEnum => generatePrimitiveOrder(f.ident, w)
+              case df: MDef => df.body match {
+                case r: Record => w.wl(s"tempResult = [self.${idObjc.field(f.ident)} compare:other.${idObjc.field(f.ident)}];")
+                case e: Enum => generatePrimitiveOrder(f.ident, w)
                 case _ => throw new AssertionError("Unreachable")
               }
-              case e: MExtern => e.defType match {
-                case DRecord => if(e.objc.pointer) w.wl(s"tempResult = [self.${idObjc.field(f.ident)} compare:other.${idObjc.field(f.ident)}];") else generatePrimitiveOrder(f.ident, w)
-                case DEnum => generatePrimitiveOrder(f.ident, w)
+              case e: MExtern => e.body match {
+                case r: Record => if(e.objc.pointer) w.wl(s"tempResult = [self.${idObjc.field(f.ident)} compare:other.${idObjc.field(f.ident)}];") else generatePrimitiveOrder(f.ident, w)
+                case e: Enum => generatePrimitiveOrder(f.ident, w)
                 case _ => throw new AssertionError("Unreachable")
               }
               case _ => throw new AssertionError("Unreachable")
@@ -389,8 +393,8 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
             f.ty.resolved.base match {
               case MOptional => w.w(s"self.${idObjc.field(f.ident)}")
               case t: MPrimitive => w.w(s"@(self.${idObjc.field(f.ident)})")
-              case df: MDef => df.defType match {
-                case DEnum => w.w(s"@(self.${idObjc.field(f.ident)})")
+              case df: MDef => df.body match {
+                case e: Enum => w.w(s"@(self.${idObjc.field(f.ident)})")
                 case _ => w.w(s"self.${idObjc.field(f.ident)}")
               }
               case e: MExtern =>

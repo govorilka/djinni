@@ -16,14 +16,16 @@
 
 package djinni
 
-import djinni.ast._
 import java.io._
+
+import djinni.ast.Record.DerivingType
+import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._
-import djinni.syntax.Error
 import djinni.writer.IndentWriter
-import scala.language.implicitConversions
+
 import scala.collection.mutable
+import scala.language.implicitConversions
 import scala.util.matching.Regex
 
 package object generatorTools {
@@ -87,11 +89,11 @@ package object generatorTools {
                    yamlOutFile: Option[String],
                    yamlPrefix: String)
 
-  def preComma(s: String) = {
+  def preComma(s: String): String = {
     if (s.isEmpty) s else ", " + s
   }
-  def q(s: String) = '"' + s + '"'
-  def firstUpper(token: String) = if (token.isEmpty()) token else token.charAt(0).toUpper + token.substring(1)
+  def q(s: String): String = '"' + s + '"'
+  def firstUpper(token: String): String = if (token.isEmpty) token else token.charAt(0).toUpper + token.substring(1)
 
   type IdentConverter = String => String
 
@@ -130,7 +132,7 @@ package object generatorTools {
       "FOO_BAR" -> underCaps)
 
     def infer(input: String): Option[IdentConverter] = {
-      styles.foreach((e) => {
+      styles.foreach(e => {
         val (str, func) = e
         if (input endsWith str) {
           val diff = input.length - str.length
@@ -179,10 +181,10 @@ package object generatorTools {
     folder.mkdirs()
     if (folder.exists) {
       if (!folder.isDirectory) {
-        throw new GenerateException(s"Unable to create $name folder at ${q(folder.getPath)}, there's something in the way.")
+        throw GenerateException(s"Unable to create $name folder at ${q(folder.getPath)}, there's something in the way.")
       }
     } else {
-      throw new GenerateException(s"Unable to create $name folder at ${q(folder.getPath)}.")
+      throw GenerateException(s"Unable to create $name folder at ${q(folder.getPath)}.")
     }
   }
 
@@ -355,6 +357,7 @@ abstract class Generator(spec: Spec)
         generateEnum(td.origin, td.ident, td.doc, e)
       case r: Record => generateRecord(td.origin, td.ident, td.doc, td.params, r)
       case i: Interface => generateInterface(td.origin, td.ident, td.doc, td.params, i)
+      case p: PrivateInterface =>
     }
   }
 
@@ -445,5 +448,25 @@ abstract class Generator(spec: Spec)
         doc.lines.foreach (l => w.wl(s" *$l"))
         w.wl(" */")
     }
+  }
+
+  def isCppOnly(tm: MExpr): Boolean = {
+    tm.base match {
+      case d: MDef => d.body match {
+          case p: PrivateInterface => true
+          case _ => false
+        }
+        case e: MExtern => e.body match {
+          case p: PrivateInterface => true
+          case _ => false
+        }
+      case _ => false
+    }
+  }
+
+  def isCppOnly(m: Interface.Method): Boolean = {
+    m.ret.foreach(ty => if (isCppOnly(ty.resolved)) return true)
+    m.params.foreach(p => if (isCppOnly(p.ty.resolved)) return true)
+    false
   }
 }

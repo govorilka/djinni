@@ -22,15 +22,17 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
     tm.base match {
       case MOptional => nullable
       case MPrimitive(_,_,_,_,_,_,_,_) => None
-      case d: MDef => d.defType match {
-        case DEnum => None
-        case DInterface => interfaceNullity
-        case DRecord => nonnull
+      case d: MDef => d.body match {
+        case e: Enum => None
+        case i :Interface => interfaceNullity
+        case r: Record => nonnull
+        case _ => throw new AssertionError("Unreachable")
       }
-      case e: MExtern => e.defType match {
-        case DEnum => None
-        case DInterface => interfaceNullity
-        case DRecord => if(e.objc.pointer) nonnull else None
+      case e: MExtern => e.body match {
+        case e: Enum => None
+        case i: Interface => interfaceNullity
+        case r: Record => if(e.objc.pointer) nonnull else None
+        case _ => throw new AssertionError("Unreachable")
       }
       case _ => nonnull
     }
@@ -53,21 +55,21 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
   def references(m: Meta, exclude: String = ""): Seq[SymbolReference] = m match {
     case o: MOpaque =>
       List(ImportRef("<Foundation/Foundation.h>"))
-    case d: MDef => d.defType match {
-      case DEnum =>
+    case d: MDef => d.body match {
+      case e: Enum =>
         List(ImportRef(include(d.name)))
-      case DInterface =>
-        val ext = d.body.asInstanceOf[Interface].ext
+      case i: Interface =>
+        val ext = i.ext
         if (!ext.objc) {
           List(ImportRef("<Foundation/Foundation.h>"), DeclRef(s"@class ${typename(d.name, d.body)};", None))
         }
         else {
           List(ImportRef("<Foundation/Foundation.h>"), DeclRef(s"@protocol ${typename(d.name, d.body)};", None))
         }
-      case DRecord =>
-        val r = d.body.asInstanceOf[Record]
+      case r: Record =>
         val prefix = if (r.ext.objc) spec.objcExtendedRecordIncludePrefix else spec.objcIncludePrefix
         List(ImportRef(q(prefix + headerName(d.name))))
+      case _ => throw new AssertionError("Unreachable")
     }
     case e: MExtern => List(ImportRef(e.objc.header))
     case p: MParam => List()
@@ -80,12 +82,14 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
     case i: Interface => true
     case r: Record => true
     case e: Enum => false
+    case _ => throw new AssertionError("Unreachable")
   }
 
   def boxedTypename(td: TypeDecl) = td.body match {
     case i: Interface => typename(td.ident, i)
     case r: Record => typename(td.ident, r)
     case e: Enum => "NSNumber"
+    case _ => throw new AssertionError("Unreachable")
   }
 
   // Return value: (Type_Name, Is_Class_Or_Not)
@@ -114,15 +118,16 @@ class ObjcMarshal(spec: Spec) extends Marshal(spec) {
             case MList => ("NSArray" + args(tm), true)
             case MSet => ("NSSet" + args(tm), true)
             case MMap => ("NSDictionary" + args(tm), true)
-            case d: MDef => d.defType match {
-              case DEnum => if (needRef) ("NSNumber", true) else (idObjc.ty(d.name), false)
-              case DRecord => (idObjc.ty(d.name), true)
-              case DInterface =>
+            case d: MDef => d.body match {
+              case e: Enum => if (needRef) ("NSNumber", true) else (idObjc.ty(d.name), false)
+              case r: Record => (idObjc.ty(d.name), true)
+              case i: Interface =>
                 val ext = d.body.asInstanceOf[Interface].ext
                 if (!ext.objc)
                   (idObjc.ty(d.name), true)
                 else
                   (s"id<${idObjc.ty(d.name)}>", false)
+              case _ => throw new AssertionError("Unreachable")
             }
             case e: MExtern => e.body match {
               case i: Interface => if(i.ext.objc) (s"id<${e.objc.typename}>", false) else (e.objc.typename, true)

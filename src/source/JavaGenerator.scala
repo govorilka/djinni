@@ -157,33 +157,37 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
 
         val throwException = spec.javaCppException.fold("")(" throws " + _)
         for (m <- i.methods if !m.static) {
-          skipFirst { w.wl }
-          writeMethodDoc(w, m, idJava.local)
-          val ret = marshal.returnType(m.ret)
-          val params = m.params.map(p => {
-            val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
-            nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
-          })
-          marshal.nullityAnnotation(m.ret).foreach(w.wl)
-          w.wl(s"public $methodPrefix" + ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")") + throwException + ";")
+          if (!isCppOnly(m)) {
+            skipFirst { w.wl }
+            writeMethodDoc(w, m, idJava.local)
+            val ret = marshal.returnType(m.ret)
+            val params = m.params.map(p => {
+              val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
+              nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
+            })
+            marshal.nullityAnnotation(m.ret).foreach(w.wl)
+            w.wl(s"public $methodPrefix" + ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")") + throwException + ";")
+          }
         }
 
         // Implement the interface's static methods as calls to CppProxy's corresponding methods.
         for (m <- i.methods if m.static) {
-          skipFirst { w.wl }
-          writeMethodDoc(w, m, idJava.local)
-          val ret = marshal.returnType(m.ret)
-          val returnPrefix = if (ret == "void") "" else "return "
-          val params = m.params.map(p => {
-            val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
-            nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
-          })
+          if (!isCppOnly(m)) {
+            skipFirst { w.wl }
+            writeMethodDoc(w, m, idJava.local)
+            val ret = marshal.returnType(m.ret)
+            val returnPrefix = if (ret == "void") "" else "return "
+            val params = m.params.map(p => {
+              val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
+              nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
+            })
 
-          val meth = idJava.method(m.ident)
-          marshal.nullityAnnotation(m.ret).foreach(w.wl)
-          w.wl("public static "+ ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")")).braced {
-            writeAlignedCall(w, s"${returnPrefix}CppProxy.${meth}(", m.params, ");", p => idJava.local(p.ident))
-            w.wl
+            val meth = idJava.method(m.ident)
+            marshal.nullityAnnotation(m.ret).foreach(w.wl)
+            w.wl("public static "+ ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")")).braced {
+              writeAlignedCall(w, s"${returnPrefix}CppProxy.${meth}(", m.params, ");", p => idJava.local(p.ident))
+              w.wl
+            }
           }
         }
 
@@ -211,30 +215,34 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
 
             // Implement the interface's non-static methods.
             for (m <- i.methods if !m.static) {
-              val ret = marshal.returnType(m.ret)
-              val returnStmt = m.ret.fold("")(_ => "return ")
-              val params = m.params.map(p => marshal.paramType(p.ty) + " " + idJava.local(p.ident)).mkString(", ")
-              val args = m.params.map(p => idJava.local(p.ident)).mkString(", ")
-              val meth = idJava.method(m.ident)
-              w.wl
-              w.wl(s"@Override")
-              w.wl(s"public $ret $meth($params)$throwException").braced {
-                w.wl("if (this.destroyed.get()) throw new IllegalStateException(\"trying to use a destroyed object\");")
-                w.wl(s"${returnStmt}native_$meth(this.nativeRef${preComma(args)});")
+              if (!isCppOnly(m)) {
+                val ret = marshal.returnType(m.ret)
+                val returnStmt = m.ret.fold("")(_ => "return ")
+                val params = m.params.map(p => marshal.paramType(p.ty) + " " + idJava.local(p.ident)).mkString(", ")
+                val args = m.params.map(p => idJava.local(p.ident)).mkString(", ")
+                val meth = idJava.method(m.ident)
+                w.wl
+                w.wl(s"@Override")
+                w.wl(s"public $ret $meth($params)$throwException").braced {
+                  w.wl("if (this.destroyed.get()) throw new IllegalStateException(\"trying to use a destroyed object\");")
+                  w.wl(s"${returnStmt}native_$meth(this.nativeRef${preComma(args)});")
+                }
+                w.wl(s"private native $ret native_$meth(long _nativeRef${preComma(params)});")
               }
-              w.wl(s"private native $ret native_$meth(long _nativeRef${preComma(params)});")
             }
 
             // Declare a native method for each of the interface's static methods.
             for (m <- i.methods if m.static) {
-              skipFirst { w.wl }
-              val ret = marshal.returnType(m.ret)
-              val params = m.params.map(p => {
-                val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
-                nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
-              })
-              marshal.nullityAnnotation(m.ret).foreach(w.wl)
-              w.wl("public static native "+ ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")") + ";")
+              if (!isCppOnly(m)) {
+                skipFirst { w.wl }
+                val ret = marshal.returnType(m.ret)
+                val params = m.params.map(p => {
+                  val nullityAnnotation = marshal.nullityAnnotation(p.ty).map(_ + " ").getOrElse("")
+                  nullityAnnotation + marshal.paramType(p.ty) + " " + idJava.local(p.ident)
+                })
+                marshal.nullityAnnotation(m.ret).foreach(w.wl)
+                w.wl("public static native "+ ret + " " + idJava.method(m.ident) + params.mkString("(", ", ", ")") + ";")
+              }
             }
           }
         }
@@ -356,18 +364,18 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
                     w.w(s"((this.${idJava.field(f.ident)} == null && other.${idJava.field(f.ident)} == null) || ")
                     w.w(s"(this.${idJava.field(f.ident)} != null && this.${idJava.field(f.ident)}.equals(other.${idJava.field(f.ident)})))")
                   case t: MPrimitive => w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
-                  case df: MDef => df.defType match {
-                    case DRecord => w.w(s"this.${idJava.field(f.ident)}.equals(other.${idJava.field(f.ident)})")
-                    case DEnum => w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
+                  case df: MDef => df.body match {
+                    case r: Record => w.w(s"this.${idJava.field(f.ident)}.equals(other.${idJava.field(f.ident)})")
+                    case e: Enum => w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
                     case _ => throw new AssertionError("Unreachable")
                   }
-                  case e: MExtern => e.defType match {
-                    case DRecord => if(e.java.reference) {
+                  case e: MExtern => e.body match {
+                    case r: Record => if(e.java.reference) {
                       w.w(s"this.${idJava.field(f.ident)}.equals(other.${idJava.field(f.ident)})")
                     } else {
                       w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
                     }
-                    case DEnum => w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
+                    case e: Enum => w.w(s"this.${idJava.field(f.ident)} == other.${idJava.field(f.ident)}")
                     case _ => throw new AssertionError("Unreachable")
                   }
                   case _ => throw new AssertionError("Unreachable")
@@ -402,9 +410,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
                   case "boolean" => s"(${idJava.field(f.ident)} ? 1 : 0)"
                   case _ => throw new AssertionError("Unreachable")
                 }
-                case e: MExtern => e.defType match {
-                  case DRecord => "(" + e.java.hash.format(idJava.field(f.ident)) + ")"
-                  case DEnum => s"${idJava.field(f.ident)}.hashCode()"
+                case e: MExtern => e.body match {
+                  case r: Record => "(" + e.java.hash.format(idJava.field(f.ident)) + ")"
+                  case e: Enum => s"${idJava.field(f.ident)}.hashCode()"
                   case _ => throw new AssertionError("Unreachable")
                 }
                 case _ => throw new AssertionError("Unreachable")
@@ -456,14 +464,14 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
               f.ty.resolved.base match {
                 case MString | MDate => w.wl(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
                 case t: MPrimitive => primitiveCompare(f.ident)
-                case df: MDef => df.defType match {
-                  case DRecord => w.wl(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
-                  case DEnum => w.w(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
+                case df: MDef => df.body match {
+                  case r: Record => w.wl(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
+                  case e: Enum => w.w(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
                   case _ => throw new AssertionError("Unreachable")
                 }
-                case e: MExtern => e.defType match {
-                  case DRecord => if(e.java.reference) w.wl(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});") else primitiveCompare(f.ident)
-                  case DEnum => w.w(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
+                case e: MExtern => e.body match {
+                  case r: Record => if(e.java.reference) w.wl(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});") else primitiveCompare(f.ident)
+                  case e: Enum => w.w(s"tempResult = this.${idJava.field(f.ident)}.compareTo(other.${idJava.field(f.ident)});")
                   case _ => throw new AssertionError("Unreachable")
                 }
                 case _ => throw new AssertionError("Unreachable")
@@ -519,9 +527,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
           case "double" => w.wl(s"this.${idJava.field(f.ident)} = in.readDouble();")
           case _ => throw new AssertionError("Unreachable")
         }
-        case df: MDef => df.defType match {
-          case DRecord => w.wl(s"this.${idJava.field(f.ident)} = new ${marshal.typename(f.ty)}(in);")
-          case DEnum => {
+        case df: MDef => df.body match {
+          case r: Record => w.wl(s"this.${idJava.field(f.ident)} = new ${marshal.typename(f.ty)}(in);")
+          case e: Enum => {
             if(marshal.isEnumFlags(m)) {
               w.wl(s"this.${idJava.field(f.ident)} = (EnumSet<${marshal.typename(f.ty)}>) in.readSerializable();")
             } else {
@@ -530,9 +538,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
           }
           case _ => throw new AssertionError("Unreachable")
         }
-        case e: MExtern => e.defType match {
-          case DRecord => w.wl(s"this.${idJava.field(f.ident)} = ${e.java.readFromParcel.format(marshal.typename(f.ty))};")
-          case DEnum => {
+        case e: MExtern => e.body match {
+          case r: Record => w.wl(s"this.${idJava.field(f.ident)} = ${e.java.readFromParcel.format(marshal.typename(f.ty))};")
+          case e: Enum => {
             if(marshal.isEnumFlags(m)) {
               w.wl(s"this.${idJava.field(f.ident)} = (EnumSet<${marshal.typename(f.ty)}>) in.readSerializable();")
             } else {
@@ -599,9 +607,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
           case "double" => w.wl(s"out.writeDouble(this.${idJava.field(f.ident)});")
           case _ => throw new AssertionError("Unreachable")
         }
-        case df: MDef => df.defType match {
-          case DRecord => w.wl(s"this.${idJava.field(f.ident)}.writeToParcel(out, flags);")
-          case DEnum => {
+        case df: MDef => df.body match {
+          case r: Record => w.wl(s"this.${idJava.field(f.ident)}.writeToParcel(out, flags);")
+          case e: Enum => {
             if(marshal.isEnumFlags(m)) {
               w.wl(s"out.writeSerializable(this.${idJava.field(f.ident)});")
             } else {
@@ -610,9 +618,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
           }
           case _ => throw new AssertionError("Unreachable")
         }
-        case e: MExtern => e.defType match {
-          case DRecord => w.wl(e.java.writeToParcel.format(idJava.field(f.ident)) + ";")
-          case DEnum => {
+        case e: MExtern => e.body match {
+          case r: Record => w.wl(e.java.writeToParcel.format(idJava.field(f.ident)) + ";")
+          case e: Enum => {
             if(marshal.isEnumFlags(m)) {
               w.wl(s"out.writeSerializable(this.${idJava.field(f.ident)});")
             } else {

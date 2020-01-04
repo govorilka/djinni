@@ -84,4 +84,9 @@ object Interface {
   case class Method(ident: Ident, params: Seq[Field], ret: Option[TypeRef], doc: Doc, static: Boolean, const: Boolean)
 }
 
+case class PrivateInterface(typename: String, header: String) extends TypeDef
+object PrivateInterface {
+  case class Option(ident: Ident, value: String)
+}
+
 case class Field(ident: Ident, ty: TypeRef, doc: Doc)

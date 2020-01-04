@@ -47,15 +47,17 @@ class JavaMarshal(spec: Spec) extends Marshal(spec) {
     ty.resolved.base match {
       case MOptional => javaNullableAnnotation
       case p: MPrimitive => None
-      case m: MDef => m.defType match {
-          case DInterface => interfaceNullityAnnotation
-          case DEnum => javaNonnullAnnotation
-          case DRecord => javaNonnullAnnotation
+      case m: MDef => m.body match {
+          case i:Interface => interfaceNullityAnnotation
+          case e:Enum => javaNonnullAnnotation
+          case r:Record => javaNonnullAnnotation
+          case _ => throw new AssertionError("Unreachable")
         }
-      case e: MExtern => e.defType match {
-        case DInterface => interfaceNullityAnnotation
-        case DRecord => if(e.java.reference) javaNonnullAnnotation else None
-        case DEnum => javaNonnullAnnotation
+      case e: MExtern => e.body match {
+        case i:Interface => interfaceNullityAnnotation
+        case r:Record => if(e.java.reference) javaNonnullAnnotation else None
+        case e:Enum => javaNonnullAnnotation
+        case _ => throw new AssertionError("Unreachable")
       }
       case _ => javaNonnullAnnotation
     }
@@ -65,11 +67,12 @@ class JavaMarshal(spec: Spec) extends Marshal(spec) {
     case i: Interface => true
     case r: Record => true
     case e: Enum =>  true
+    case _ => throw new AssertionError("Unreachable")
   }
 
   def isEnumFlags(m: Meta): Boolean = m match {
-    case MDef(_, _, _, Enum(_, true)) => true
-    case MExtern(_, _, _, Enum(_, true), _, _, _, _, _) => true
+    case MDef(_, _, Enum(_, true)) => true
+    case MExtern(_, _, Enum(_, true), _, _, _, _, _) => true
     case _ => false
   }
   def isEnumFlags(tm: MExpr): Boolean = tm.base match {

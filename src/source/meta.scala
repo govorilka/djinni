@@ -17,6 +17,7 @@
 package djinni
 
 import djinni.ast.TypeDef
+import djinni.ast.Interface
 import scala.collection.immutable
 
 package object meta {
@@ -29,8 +30,8 @@ abstract sealed class Meta
 }
 
 case class MParam(name: String) extends Meta { val numParams = 0 }
-case class MDef(name: String, override val numParams: Int, defType: DefType, body: TypeDef) extends Meta
-case class MExtern(name: String, override val numParams: Int, defType: DefType, body: TypeDef, cpp: MExtern.Cpp, objc: MExtern.Objc, objcpp: MExtern.Objcpp, java: MExtern.Java, jni: MExtern.Jni) extends Meta
+case class MDef(name: String, override val numParams: Int, body: TypeDef) extends Meta
+case class MExtern(name: String, override val numParams: Int, body: TypeDef, cpp: MExtern.Cpp, objc: MExtern.Objc, objcpp: MExtern.Objcpp, java: MExtern.Java, jni: MExtern.Jni) extends Meta
 object MExtern {
   // These hold the information marshals need to interface with existing types correctly
   // All include paths are complete including quotation marks "a/b/c" or angle brackets <a/b/c>.
@@ -71,11 +72,6 @@ object MExtern {
 
 abstract sealed class MOpaque extends Meta { val idlName: String }
 
-abstract sealed class DefType
-case object DEnum extends DefType
-case object DInterface extends DefType
-case object DRecord extends DefType
-
 case class MPrimitive(_idlName: String, jName: String, jniName: String, cName: String, jBoxed: String, jSig: String, objcName: String, objcBoxed: String) extends MOpaque { val numParams = 0; val idlName = _idlName }
 case object MString extends MOpaque { val numParams = 0; val idlName = "string" }
 case object MDate extends MOpaque { val numParams = 0; val idlName = "date" }
@@ -103,10 +99,15 @@ val defaults: Map[String,MOpaque] = immutable.HashMap(
 
 def isInterface(ty: MExpr): Boolean = {
   ty.base match {
-    case d: MDef => d.defType == DInterface
-    case e: MExtern => e.defType == DInterface
+    case d: MDef => isInterface(d.body)
+    case e: MExtern => isInterface(e.body)
     case _ => false
   }
+}
+
+def isInterface(td: TypeDef): Boolean = td match {
+  case i: Interface => true
+  case _ => false
 }
 
 def isOptionalInterface(ty: MExpr): Boolean = {
