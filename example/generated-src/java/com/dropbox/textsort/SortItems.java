@@ -31,7 +31,7 @@ import javax.annotation.Nonnull;
 
         private CppProxy(long nativeRef)
         {
-            if (nativeRef == 0) throw new RuntimeException("nativeRef is zero");
+            if (nativeRef == 0) throw new IllegalArgumentException("nativeRef is zero");
             this.nativeRef = nativeRef;
         }
 
@@ -50,7 +50,7 @@ import javax.annotation.Nonnull;
         @Override
         public void sort(SortOrder order, ItemList items)
         {
-            assert !this.destroyed.get() : "trying to use a destroyed object";
+            if (this.destroyed.get()) throw new IllegalStateException("trying to use a destroyed object");
             native_sort(this.nativeRef, order, items);
         }
         private native void native_sort(long _nativeRef, SortOrder order, ItemList items);

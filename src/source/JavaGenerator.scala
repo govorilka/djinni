@@ -186,7 +186,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
             w.wl
           }
         }
-        
+
         if (i.ext.cpp) {
           w.wl
           javaAnnotationHeader.foreach(w.wl)
@@ -195,7 +195,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
             w.wl("private final AtomicBoolean destroyed = new AtomicBoolean(false);")
             w.wl
             w.wl(s"private CppProxy(long nativeRef)").braced {
-              w.wl("if (nativeRef == 0) throw new RuntimeException(\"nativeRef is zero\");")
+              w.wl("if (nativeRef == 0) throw new IllegalArgumentException(\"nativeRef is zero\");")
               w.wl(s"this.nativeRef = nativeRef;")
             }
             w.wl
@@ -219,7 +219,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
               w.wl
               w.wl(s"@Override")
               w.wl(s"public $ret $meth($params)$throwException").braced {
-                w.wl("assert !this.destroyed.get() : \"trying to use a destroyed object\";")
+                w.wl("if (this.destroyed.get()) throw new IllegalStateException(\"trying to use a destroyed object\");")
                 w.wl(s"${returnStmt}native_$meth(this.nativeRef${preComma(args)});")
               }
               w.wl(s"private native $ret native_$meth(long _nativeRef${preComma(params)});")

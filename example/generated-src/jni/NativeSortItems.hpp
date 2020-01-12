@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "SortItems.hpp"
 #include "djinni_support.hpp"
-#include "sort_items.hpp"
 
 namespace djinni_generated {
 

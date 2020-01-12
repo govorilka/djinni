@@ -61,8 +61,10 @@ object Main {
     var cppHeaderExt: String = "hpp"
     var javaIdentStyle = IdentStyle.javaDefault
     var cppIdentStyle = IdentStyle.cppDefault
+    var cppTypeInterfaceIdentStyle: IdentConverter = null
     var cppTypeEnumIdentStyle: IdentConverter = null
     var objcOutFolder: Option[File] = None
+    var objcHeaderOutFolderOptional: Option[File] = None
     var objcppOutFolder: Option[File] = None
     var objcppExt: String = "mm"
     var objcHeaderExt: String = "h"
@@ -166,6 +168,8 @@ object Main {
       note("")
       opt[File]("objc-out").valueName("<out-folder>").foreach(x => objcOutFolder = Some(x))
         .text("The output folder for Objective-C files (Generator disabled if unspecified).")
+      opt[File]("objc-header-out").valueName("<out-folder>").foreach(x => objcHeaderOutFolderOptional = Some(x))
+        .text("The folder for the JNI C++ header files (default: the same as --objc-out).")
       opt[String]("objc-h-ext").valueName("<ext>").foreach(objcHeaderExt = _)
         .text("The filename extension for Objective-C[++] header files (default: \"h\")")
       opt[String]("objc-type-prefix").valueName("<pre>").foreach(objcTypePrefix = _)
@@ -218,6 +222,7 @@ object Main {
       identStyle("ident-cpp-field",      c => { cppIdentStyle = cppIdentStyle.copy(field = c) })
       identStyle("ident-cpp-method",     c => { cppIdentStyle = cppIdentStyle.copy(method = c) })
       identStyle("ident-cpp-type",       c => { cppIdentStyle = cppIdentStyle.copy(ty = c) })
+      identStyle("ident-cpp-interface",  c => { cppTypeInterfaceIdentStyle = c })
       identStyle("ident-cpp-enum-type",  c => { cppTypeEnumIdentStyle = c })
       identStyle("ident-cpp-type-param", c => { cppIdentStyle = cppIdentStyle.copy(typeParam = c) })
       identStyle("ident-cpp-local",      c => { cppIdentStyle = cppIdentStyle.copy(local = c) })
@@ -245,6 +250,7 @@ object Main {
     val jniFileIdentStyle = jniFileIdentStyleOptional.getOrElse(cppFileIdentStyle)
     var objcFileIdentStyle = objcFileIdentStyleOptional.getOrElse(objcIdentStyle.ty)
     val objcppIncludeObjcPrefix = objcppIncludeObjcPrefixOptional.getOrElse(objcppIncludePrefix)
+    val objcHeaderOutFolder = if (objcHeaderOutFolderOptional.isDefined) objcHeaderOutFolderOptional else objcOutFolder
 
     // Add ObjC prefix to identstyle
     objcIdentStyle = objcIdentStyle.copy(ty = IdentStyle.prefix(objcTypePrefix,objcIdentStyle.ty))
@@ -252,6 +258,12 @@ object Main {
 
     if (cppTypeEnumIdentStyle != null) {
       cppIdentStyle = cppIdentStyle.copy(enumType = cppTypeEnumIdentStyle)
+    }
+
+    if (cppTypeInterfaceIdentStyle != null) {
+      cppIdentStyle = cppIdentStyle.copy(interfaceType = cppTypeInterfaceIdentStyle)
+    } else {
+      cppIdentStyle = cppIdentStyle.copy(interfaceType = cppIdentStyle.ty)
     }
 
     // Parse IDL file.
@@ -340,6 +352,7 @@ object Main {
       cppExt,
       cppHeaderExt,
       objcOutFolder,
+      objcHeaderOutFolder,
       objcppOutFolder,
       objcIdentStyle,
       objcFileIdentStyle,

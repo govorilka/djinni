@@ -35,11 +35,13 @@ class JNIGenerator(spec: Spec) extends Generator(spec) {
   def writeJniHppFile(name: String, origin: String, includes: Iterable[String], fwds: Iterable[String], f: IndentWriter => Unit, f2: IndentWriter => Unit = (w => {})) =
     writeHppFileGeneric(spec.jniHeaderOutFolder.get, spec.jniNamespace, spec.jniFileIdentStyle)(name, origin, includes, fwds, f, f2)
 
-  class JNIRefs(name: String, cppPrefixOverride: Option[String]=None) {
+  class JNIRefs(ident: String, ty: TypeDef, cppPrefixOverride: Option[String]=None) {
     var jniHpp = mutable.TreeSet[String]()
     var jniCpp = mutable.TreeSet[String]()
 
     val cppPrefix = cppPrefixOverride.getOrElse(spec.jniIncludeCppPrefix)
+  
+    val name = cppMarshal.typename(ident, ty)
     jniHpp.add("#include " + q(cppPrefix + spec.cppFileIdentStyle(name) + "." + spec.cppHeaderExt))
     jniHpp.add("#include " + q(spec.jniBaseLibIncludePrefix + "djinni_support.hpp"))
     spec.cppNnHeader match {
@@ -52,14 +54,14 @@ class JNIGenerator(spec: Spec) extends Generator(spec) {
       tm.args.foreach(find)
       find(tm.base)
     }
-    def find(m: Meta) = for(r <- jniMarshal.references(m, name)) r match {
+    def find(m: Meta) = for(r <- jniMarshal.references(m, ident)) r match {
       case ImportRef(arg) => jniCpp.add("#include " + arg)
       case _ =>
     }
   }
 
   override def generateEnum(origin: String, ident: Ident, doc: Doc, e: Enum) {
-    val refs = new JNIRefs(ident.name)
+    val refs = new JNIRefs(ident.name, e)
     val jniHelper = jniMarshal.helperClass(ident)
     val cppSelf = cppMarshal.fqTypename(ident, e)
 
@@ -95,7 +97,7 @@ class JNIGenerator(spec: Spec) extends Generator(spec) {
     } else {
       None
     }
-    val refs = new JNIRefs(ident.name, prefixOverride)
+    val refs = new JNIRefs(ident.name, r, prefixOverride)
     r.fields.foreach(f => refs.find(f.ty))
 
     val jniHelper = jniMarshal.helperClass(ident)
@@ -183,7 +185,7 @@ class JNIGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateInterface(origin: String, ident: Ident, doc: Doc, typeParams: Seq[TypeParam], i: Interface) {
-    val refs = new JNIRefs(ident.name)
+    val refs = new JNIRefs(ident.name, i)
     i.methods.foreach(m => {
       m.params.foreach(p => refs.find(p.ty))
       m.ret.foreach(refs.find)

@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include "ItemList.hpp"
 #include "djinni_support.hpp"
-#include "item_list.hpp"
 
 namespace djinni_generated {
 

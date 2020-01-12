@@ -243,7 +243,7 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
           w.wl("{}")
         }
 
-        if (r.ext.cpp) {
+        if (r.ext.cpp && r.fields.nonEmpty) {
           w.wl
           w.wl(s"virtual ~$actualSelf() = default;")
           w.wl
@@ -258,7 +258,9 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
       }
     }
 
-    writeHppFile(cppName, origin, refs.hpp, refs.hppFwds, writeCppPrototype)
+    if (!r.ext.cpp || r.fields.nonEmpty) {
+      writeHppFile(cppName, origin, refs.hpp, refs.hppFwds, writeCppPrototype)
+    }
 
     if (r.consts.nonEmpty || r.derivingTypes.contains(DerivingType.Eq) || r.derivingTypes.contains(DerivingType.Ord)) {
       writeCppFile(cppName, origin, refs.cpp, w => {
@@ -325,7 +327,7 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
     val self = marshal.typename(ident, i)
     val methodNamesInScope = i.methods.map(m => idCpp.method(m.ident))
 
-    writeHppFile(ident, origin, refs.hpp, refs.hppFwds, w => {
+    writeHppFile(self, origin, refs.hpp, refs.hppFwds, w => {
       writeDoc(w, doc)
       writeCppTypeParams(w, typeParams)
       w.w(s"class $self").bracedSemi {
@@ -352,7 +354,7 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
 
     // Cpp only generated in need of Constants
     if (i.consts.nonEmpty) {
-      writeCppFile(ident, origin, refs.cpp, w => {
+      writeCppFile(self, origin, refs.cpp, w => {
         generateCppConstants(w, i.consts, self)
       })
     }

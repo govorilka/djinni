@@ -15,14 +15,14 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
   def typename(ty: TypeRef, scopeSymbols: Seq[String]): String = typename(ty.resolved, scopeSymbols)
   def typename(name: String, ty: TypeDef): String = ty match {
     case e: Enum => idCpp.enumType(name)
-    case i: Interface => idCpp.ty(name)
+    case i: Interface => idCpp.interfaceType(name)
     case r: Record => idCpp.ty(name)
   }
 
   override def fqTypename(tm: MExpr): String = toCppType(tm, Some(spec.cppNamespace), Seq())
   def fqTypename(name: String, ty: TypeDef): String = ty match {
     case e: Enum => withNs(Some(spec.cppNamespace), idCpp.enumType(name))
-    case i: Interface => withNs(Some(spec.cppNamespace), idCpp.ty(name))
+    case i: Interface => withNs(Some(spec.cppNamespace), idCpp.interfaceType(name))
     case r: Record => withNs(Some(spec.cppNamespace), idCpp.ty(name))
   }
 
@@ -65,7 +65,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
           if (forwardDeclareOnly) {
             List(DeclRef(s"struct ${typename(d.name, d.body)};", Some(spec.cppNamespace)))
           } else {
-            List(ImportRef(include(d.name, r.ext.cpp)))
+            List(ImportRef(include(d.name, d.body)))
           }
         } else {
           List()
@@ -76,7 +76,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
             val underlyingType = if(e.flags) " : unsigned" else ""
             List(DeclRef(s"enum class ${typename(d.name, d.body)}${underlyingType};", Some(spec.cppNamespace)))
           } else {
-            List(ImportRef(include(d.name)))
+            List(ImportRef(include(d.name, d.body)))
           }
         } else {
           List()
@@ -110,13 +110,13 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
         case d: MDef => d.body match {
           case r: Record =>
             if (d.name != exclude) {
-              List(ImportRef(include(d.name, r.ext.cpp)))
+              List(ImportRef(include(d.name, d.body)))
             } else {
               List()
             }
           case e: Enum =>
             if (d.name != exclude) {
-              List(ImportRef(include(d.name)))
+              List(ImportRef(include(d.name, d.body)))
             } else {
               List()
             }
@@ -127,9 +127,18 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
     }
   }
 
-  def include(ident: String, isExtendedRecord: Boolean = false): String = {
+  def headerName(ident: String, ty: TypeDef): String = {
+    val name = typename(ident, ty)
+    spec.cppFileIdentStyle (name) + "." + spec.cppHeaderExt
+  }
+
+  def include(ident: String, ty: TypeDef): String = {
+    val isExtendedRecord = ty match {
+      case r: Record => r.ext.cpp
+      case _ => false
+    }
     val prefix = if (isExtendedRecord) spec.cppExtendedRecordIncludePrefix else spec.cppIncludePrefix
-    q(prefix + spec.cppFileIdentStyle (ident) + "." + spec.cppHeaderExt)
+    q(prefix + headerName(ident, ty))
   }
 
   private def toCppType(ty: TypeRef, namespace: Option[String] = None, scopeSymbols: Seq[String] = Seq()): String =
@@ -160,7 +169,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
         d.defType match {
           case DEnum => withNamespace(idCpp.enumType(d.name))
           case DRecord => withNamespace(idCpp.ty(d.name))
-          case DInterface => s"std::shared_ptr<${withNamespace(idCpp.ty(d.name))}>"
+          case DInterface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
         }
       case e: MExtern => e.defType match {
         case DInterface => s"std::shared_ptr<${e.cpp.typename}>"
@@ -177,14 +186,14 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
           tm.base match {
             case d: MDef =>
               d.defType match {
-                case DInterface => s"${nnType}<${withNamespace(idCpp.ty(d.name))}>"
+                case DInterface => s"${nnType}<${withNamespace(idCpp.interfaceType(d.name))}>"
                 case _ => base(tm.base) + args
               }
             case MOptional =>
               tm.args.head.base match {
                 case d: MDef =>
                   d.defType match {
-                    case DInterface => s"std::shared_ptr<${withNamespace(idCpp.ty(d.name))}>"
+                    case DInterface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
                     case _ => base(tm.base) + args
                   }
                 case _ => base(tm.base) + args

@@ -65,6 +65,7 @@ package object generatorTools {
                    cppExt: String,
                    cppHeaderExt: String,
                    objcOutFolder: Option[File],
+                   objcHeaderOutFolder: Option[File],
                    objcppOutFolder: Option[File],
                    objcIdentStyle: ObjcIdentStyle,
                    objcFileIdentStyle: IdentConverter,
@@ -94,7 +95,7 @@ package object generatorTools {
 
   type IdentConverter = String => String
 
-  case class CppIdentStyle(ty: IdentConverter, enumType: IdentConverter, typeParam: IdentConverter,
+  case class CppIdentStyle(ty: IdentConverter, interfaceType: IdentConverter, enumType: IdentConverter, typeParam: IdentConverter,
                            method: IdentConverter, field: IdentConverter, local: IdentConverter,
                            enum: IdentConverter, const: IdentConverter)
 
@@ -118,7 +119,7 @@ package object generatorTools {
     val prefix = (prefix: String, suffix: IdentConverter) => (s: String) => prefix + suffix(s)
 
     val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps)
-    val cppDefault = CppIdentStyle(camelUpper, camelUpper, camelUpper, underLower, underLower, underLower, underCaps, underCaps)
+    val cppDefault = CppIdentStyle(camelUpper, camelUpper, camelUpper, camelUpper, underLower, underLower, underLower, underCaps, underCaps)
     val objcDefault = ObjcIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, camelUpper, camelUpper)
 
     val styles = Map(
@@ -210,6 +211,7 @@ package object generatorTools {
       if (spec.objcOutFolder.isDefined) {
         if (!spec.skipGeneration) {
           createFolder("Objective-C", spec.objcOutFolder.get)
+          createFolder("Objective-C header", spec.objcHeaderOutFolder.get)
         }
         new ObjcGenerator(spec).generate(idl)
       }

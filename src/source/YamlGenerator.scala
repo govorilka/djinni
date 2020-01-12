@@ -114,7 +114,7 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
 
   private def cpp(td: TypeDecl) = Map[String, Any](
     "typename" -> QuotedString(cppMarshal.fqTypename(td.ident, td.body)),
-    "header" -> QuotedString(cppMarshal.include(td.ident)),
+    "header" -> QuotedString(cppMarshal.include(td.ident, td.body)),
     "byValue" -> cppMarshal.byValue(td)
   )
 

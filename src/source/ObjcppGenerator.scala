@@ -75,7 +75,7 @@ class ObjcppGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
     val cppSelf = cppMarshal.fqTypename(ident, i)
 
     refs.privHeader.add("#include <memory>")
-    refs.privHeader.add("!#include " + q(spec.objcppIncludeCppPrefix + spec.cppFileIdentStyle(ident) + "." + spec.cppHeaderExt))
+    refs.privHeader.add("!#include " + q(spec.objcppIncludeCppPrefix + cppMarshal.headerName(ident, i)))
     refs.body.add("!#import " + q(spec.objcppIncludeObjcPrefix + headerName(ident)))
     refs.body.add("!#import " + q(spec.objcppIncludePrefix + objcppMarshal.privateHeaderName(ident.name)))
 
