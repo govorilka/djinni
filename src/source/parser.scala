@@ -105,7 +105,7 @@ private object IdlParser extends RegexParsers {
     success(Ext(foundJava, foundCpp, foundObjc))
   }
 
-  def typeDef: Parser[TypeDef] = record | enum | flags | interface
+  def typeDef: Parser[TypeDef] = record | enum | flags | interface | privateInterface
 
   def recordHeader = "record" ~> extRecord
   def record: Parser[Record] = recordHeader ~ bracesList(field | const) ~ opt(deriving) ^^ {
@@ -158,11 +158,33 @@ private object IdlParser extends RegexParsers {
     }
   }
 
-  def externTypeDecl: Parser[TypeDef] = externEnum | externFlags | externInterface | externRecord
+
+  def privateInterfaceHeader = "private_interface".r
+  def privateInterfaceOptionValue = """([^\\\"]|(\\.))*""".r
+  def privateInterface: Parser[PrivateInterface] = privateInterfaceHeader ~> bracesList(privateInterfaceOption) ^^ {
+    case items => 
+      val typeName = items.find(i => i.ident.name == "typeName") match {
+        case Some(opt) => opt.value
+        case None => ""
+      }
+      val header = items.find(i => i.ident.name == "header") match {
+        case Some(opt) => opt.value
+        case None => ""
+      }
+      PrivateInterface(typeName, header)
+  }
+  def privateInterfaceOption(): Parser[PrivateInterface.Option] = {
+    ident ~ ":" ~ ("\"" ~> privateInterfaceOptionValue <~ "\"") ^^ {
+      case name~_~value => new PrivateInterface.Option(name, value)
+    }
+  }
+
+  def externTypeDecl: Parser[TypeDef] = externEnum | externFlags | externInterface | externRecord | externPrivateInterface
   def externEnum: Parser[Enum] = enumHeader ^^ { case _ => Enum(List(), false) }
   def externFlags: Parser[Enum] = flagsHeader ^^ { case _ => Enum(List(), true) }
   def externRecord: Parser[Record] = recordHeader ~ opt(deriving) ^^ { case ext~deriving => Record(ext, List(), List(), deriving.getOrElse(Set[DerivingType]())) }
   def externInterface: Parser[Interface] = interfaceHeader ^^ { case ext => Interface(ext, List(), List()) }
+  def externPrivateInterface: Parser[PrivateInterface] = privateInterfaceHeader ^^ { case ext => PrivateInterface("", "") }
 
   def staticLabel: Parser[Boolean] = ("static ".r | "".r) ^^ {
     case "static " => true

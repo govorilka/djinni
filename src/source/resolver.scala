@@ -42,17 +42,15 @@ def resolve(metas: Scope, idl: Seq[TypeDecl]): Option[Error] = {
     for (typeDecl <- idl) {
       topLevelDupeChecker.check(typeDecl.ident)
 
-      def defType = typeDecl.body match {
+      typeDecl.body match {
         case e: Enum =>
           if (!typeDecl.params.isEmpty) {
             throw Error(typeDecl.ident.loc, "enums can't have type parameters").toException
           }
-          DEnum
-        case r: Record => DRecord
-        case i: Interface => DInterface
+        case _ =>
       }
       topScope = topScope.updated(typeDecl.ident.name, typeDecl match {
-        case td: InternTypeDecl => MDef(typeDecl.ident.name, typeDecl.params.length, defType, typeDecl.body)
+        case td: InternTypeDecl => MDef(typeDecl.ident.name, typeDecl.params.length, typeDecl.body)
         case td: ExternTypeDecl => YamlGenerator.metaFromYaml(td)
       })
     }
@@ -89,6 +87,7 @@ private def resolve(scope: Scope, typeDef: TypeDef) {
     case e: Enum => resolveEnum(scope, e)
     case r: Record => resolveRecord(scope, r)
     case i: Interface => resolveInterface(scope, i)
+    case p: PrivateInterface =>
   }
 }
 
@@ -116,6 +115,7 @@ private def resolveConst(typeDef: TypeDef) {
     case e: Enum =>
     case r: Record => f(r.consts)
     case i: Interface => f(i.consts)
+    case p: PrivateInterface =>
   }
 }
 
@@ -173,10 +173,10 @@ private def constTypeCheck(ty: MExpr, value: Any, resolvedConsts: Seq[Const]) {
         case _ => throw new AssertionError("Const type mismatch: f64")
       }
     }
-    case d: MDef => d.defType match {
-      case DInterface =>
+    case d: MDef => d.body match {
+      case i: Interface =>
         throw new AssertionError("Type not allowed for constant")
-      case DRecord =>
+      case r: Record =>
         if (!value.isInstanceOf[Map[_, _]])
           throw new AssertionError("Record value not valid")
         val record = d.body.asInstanceOf[Record]
@@ -191,7 +191,7 @@ private def constTypeCheck(ty: MExpr, value: Any, resolvedConsts: Seq[Const]) {
         }
         if (record.fields.size != map.size)
           throw new AssertionError("Record field number mismatch")
-      case DEnum => {
+      case e: Enum => {
         if (!value.isInstanceOf[EnumValue])
           throw new AssertionError(s"Const type mismatch: enum ${d.name}")
         val opt = value.asInstanceOf[EnumValue]
@@ -202,6 +202,8 @@ private def constTypeCheck(ty: MExpr, value: Any, resolvedConsts: Seq[Const]) {
         if (!options.contains(opt.name))
           throw new AssertionError(s"Const type mismatch: enum ${d.name} does not have option ${opt.name}")
       }
+      case p: PrivateInterface =>
+        throw new AssertionError("Type not allowed for constant")
     }
     case e: MExtern => throw new AssertionError("Extern type not allowed for constant")
     case _ => throw new AssertionError("Const type cannot be resolved")
@@ -235,23 +237,27 @@ private def resolveRecord(scope: Scope, r: Record) {
             throw new Error(f.ident.loc, "Cannot compare booleans in Ord deriving").toException
         case _ =>
       }
-      case df: MDef => df.defType match {
-        case DInterface =>
+      case df: MDef => df.body match {
+        case i: Interface =>
           throw new Error(f.ident.loc, "Interface reference cannot live in a record").toException
-        case DRecord =>
+        case r: Record =>
           val record = df.body.asInstanceOf[Record]
           if (!r.derivingTypes.subsetOf(record.derivingTypes))
             throw new Error(f.ident.loc, s"Some deriving required is not implemented in record ${f.ident.name}").toException
-        case DEnum =>
+        case e: Enum =>
+        case p: PrivateInterface =>
+          throw new Error(f.ident.loc, "Private interface reference cannot live in a record").toException
       }
-      case e: MExtern => e.defType match {
-        case DInterface =>
+      case e: MExtern => e.body match {
+        case i: Interface =>
           throw new Error(f.ident.loc, "Interface reference cannot live in a record").toException
-        case DRecord =>
+        case r: Record =>
           val record = e.body.asInstanceOf[Record]
           if (!r.derivingTypes.subsetOf(record.derivingTypes))
             throw new Error(f.ident.loc, s"Some deriving required is not implemented in record ${f.ident.name}").toException
-        case DEnum =>
+        case e: Enum =>
+        case p: PrivateInterface =>
+          throw new Error(f.ident.loc, "Private interface reference cannot live in a record").toException
       }
       case _ => throw new AssertionError("Type cannot be resolved")
     }

@@ -23,6 +23,7 @@ cpp_out="$base_dir/generated-src/cpp"
 jni_out="$base_dir/generated-src/jni"
 objc_out="$base_dir/generated-src/objc"
 java_out="$base_dir/generated-src/java/com/dropbox/textsort"
+yaml_out="$base_dir/generated-src/yaml/"
 
 java_package="com.dropbox.textsort"
 
@@ -72,6 +73,10 @@ fi
     --objc-type-prefix TXS \
     --objc-swift-bridging-header "TextSort-Bridging-Header" \
     \
+    --yaml-out "$temp_out/yaml" \
+    --yaml-out-file "example.yaml" \
+    --yaml-prefix "Example" \
+    \
     --idl "$in"
 
 # Copy changes from "$temp_output" to final dir.
@@ -89,6 +94,7 @@ mirror "cpp" "$temp_out/cpp" "$cpp_out"
 mirror "java" "$temp_out/java" "$java_out"
 mirror "jni" "$temp_out/jni" "$jni_out"
 mirror "objc" "$temp_out/objc" "$objc_out"
+mirror "objc" "$temp_out/yaml" "$yaml_out"
 
 date > "$gen_stamp"
 

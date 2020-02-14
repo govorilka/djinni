@@ -64,8 +64,10 @@ class ObjcppGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
   override def generateInterface(origin: String, ident: Ident, doc: Doc, typeParams: Seq[TypeParam], i: Interface) {
     val refs = new ObjcRefs()
     i.methods.map(m => {
-      m.params.map(p => refs.find(p.ty))
-      m.ret.foreach(refs.find)
+      if (!isCppOnly(m)) {
+        m.params.map(p => refs.find(p.ty))
+        m.ret.foreach(refs.find)
+      }
     })
     i.consts.map(c => {
       refs.find(c.ty)
@@ -170,29 +172,31 @@ class ObjcppGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
           w.wl("return self;")
         }
         for (m <- i.methods) {
-          w.wl
-          writeObjcFuncDecl(m, w)
-          w.braced {
-            w.w("try").bracedEnd(" DJINNI_TRANSLATE_EXCEPTIONS()") {
-              m.params.foreach(p => {
-                if (isInterface(p.ty.resolved) && spec.cppNnCheckExpression.nonEmpty) {
-                  // We have a non-optional interface, assert that we're getting a non-null value
-                  val paramName = idObjc.local(p.ident)
-                  val stringWriter = new StringWriter()
-                  writeObjcFuncDecl(m, new IndentWriter(stringWriter))
-                  val singleLineFunctionDecl = stringWriter.toString.replaceAll("\n *", " ")
-                  val exceptionReason = s"Got unexpected null parameter '$paramName' to function $objcSelf $singleLineFunctionDecl"
-                  w.w(s"if ($paramName == nil)").braced {
-                    w.wl(s"""throw std::invalid_argument("$exceptionReason");""")
+          if (!isCppOnly(m)) {
+            w.wl
+            writeObjcFuncDecl(m, w)
+            w.braced {
+              w.w("try").bracedEnd(" DJINNI_TRANSLATE_EXCEPTIONS()") {
+                m.params.foreach(p => {
+                  if (isInterface(p.ty.resolved) && spec.cppNnCheckExpression.nonEmpty) {
+                    // We have a non-optional interface, assert that we're getting a non-null value
+                    val paramName = idObjc.local(p.ident)
+                    val stringWriter = new StringWriter()
+                    writeObjcFuncDecl(m, new IndentWriter(stringWriter))
+                    val singleLineFunctionDecl = stringWriter.toString.replaceAll("\n *", " ")
+                    val exceptionReason = s"Got unexpected null parameter '$paramName' to function $objcSelf $singleLineFunctionDecl"
+                    w.w(s"if ($paramName == nil)").braced {
+                      w.wl(s"""throw std::invalid_argument("$exceptionReason");""")
+                    }
                   }
-                }
-              })
-              val ret = m.ret.fold("")(_ => "auto objcpp_result_ = ")
-              val call = ret + (if (!m.static) "_cppRefHandle.get()->" else cppSelf + "::") + idCpp.method(m.ident) + "("
-              writeAlignedCall(w, call, m.params, ")", p => objcppMarshal.toCpp(p.ty, idObjc.local(p.ident.name)))
+                })
+                val ret = m.ret.fold("")(_ => "auto objcpp_result_ = ")
+                val call = ret + (if (!m.static) "_cppRefHandle.get()->" else cppSelf + "::") + idCpp.method(m.ident) + "("
+                writeAlignedCall(w, call, m.params, ")", p => objcppMarshal.toCpp(p.ty, idObjc.local(p.ident.name)))
 
-              w.wl(";")
-              m.ret.fold()(r => w.wl(s"return ${objcppMarshal.fromCpp(r, "objcpp_result_")};"))
+                w.wl(";")
+                m.ret.fold()(r => w.wl(s"return ${objcppMarshal.fromCpp(r, "objcpp_result_")};"))
+              }
             }
           }
         }

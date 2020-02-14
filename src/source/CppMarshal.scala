@@ -17,6 +17,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
     case e: Enum => idCpp.enumType(name)
     case i: Interface => idCpp.interfaceType(name)
     case r: Record => idCpp.ty(name)
+    case p: PrivateInterface => p.typename
   }
 
   override def fqTypename(tm: MExpr): String = toCppType(tm, Some(spec.cppNamespace), Seq())
@@ -24,6 +25,7 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
     case e: Enum => withNs(Some(spec.cppNamespace), idCpp.enumType(name))
     case i: Interface => withNs(Some(spec.cppNamespace), idCpp.interfaceType(name))
     case r: Record => withNs(Some(spec.cppNamespace), idCpp.ty(name))
+    case p: PrivateInterface => p.typename
   }
 
   def paramType(tm: MExpr, scopeSymbols: Seq[String]): String = toCppParamType(tm, None, scopeSymbols)
@@ -91,11 +93,13 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
           case Some(nnHdr) => ImportRef(nnHdr) :: base
           case _ => base
         }
+      case p: PrivateInterface => 
+        List(ImportRef(s"<${p.header}>"))
     }
-    case e: MExtern => e.defType match {
+    case e: MExtern => e.body match {
       // Do not forward declare extern types, they might be in arbitrary namespaces.
       // This isn't a problem as extern types cannot cause dependency cycles with types being generated here
-      case DInterface => List(ImportRef("<memory>"), ImportRef(e.cpp.header))
+      case i: Interface => List(ImportRef("<memory>"), ImportRef(e.cpp.header))
       case _ => List(ImportRef(e.cpp.header))
     }
     case p: MParam => List()
@@ -166,13 +170,14 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
       case MSet => "std::unordered_set"
       case MMap => "std::unordered_map"
       case d: MDef =>
-        d.defType match {
-          case DEnum => withNamespace(idCpp.enumType(d.name))
-          case DRecord => withNamespace(idCpp.ty(d.name))
-          case DInterface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
+        d.body match {
+          case e: Enum => withNamespace(idCpp.enumType(d.name))
+          case r: Record => withNamespace(idCpp.ty(d.name))
+          case i: Interface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
+          case p: PrivateInterface => p.typename
         }
-      case e: MExtern => e.defType match {
-        case DInterface => s"std::shared_ptr<${e.cpp.typename}>"
+      case e: MExtern => e.body match {
+        case i: Interface => s"std::shared_ptr<${e.cpp.typename}>"
         case _ => e.cpp.typename
       }
       case p: MParam => idCpp.typeParam(p.name)
@@ -185,15 +190,15 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
           val args = if (tm.args.isEmpty) "" else tm.args.map(expr).mkString("<", ", ", ">")
           tm.base match {
             case d: MDef =>
-              d.defType match {
-                case DInterface => s"${nnType}<${withNamespace(idCpp.interfaceType(d.name))}>"
+              d.body match {
+                case i: Interface => s"${nnType}<${withNamespace(idCpp.interfaceType(d.name))}>"
                 case _ => base(tm.base) + args
               }
             case MOptional =>
               tm.args.head.base match {
                 case d: MDef =>
-                  d.defType match {
-                    case DInterface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
+                  d.body match {
+                    case i: Interface => s"std::shared_ptr<${withNamespace(idCpp.interfaceType(d.name))}>"
                     case _ => base(tm.base) + args
                   }
                 case _ => base(tm.base) + args
@@ -216,23 +221,22 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
 
   def byValue(tm: MExpr): Boolean = tm.base match {
     case p: MPrimitive => true
-    case d: MDef => d.defType match {
-      case DEnum => true
-      case _  => false
-    }
-    case e: MExtern => e.defType match {
-      case DInterface => false
-      case DEnum => true
-      case DRecord => e.cpp.byValue
+    case d: MDef => byValue(d.body)
+    case e: MExtern => e.body match {
+      case i: Interface => false
+      case e: Enum => true
+      case r: Record => e.cpp.byValue
+      case p: PrivateInterface => false
     }
     case MOptional => byValue(tm.args.head)
     case _ => false
   }
 
-  def byValue(td: TypeDecl): Boolean = td.body match {
+  def byValue(ty: TypeDef): Boolean = ty match {
     case i: Interface => false
     case r: Record => false
     case e: Enum => true
+    case p: PrivateInterface => false 
   }
 
   // this can be used in c++ generation to know whether a const& should be applied to the parameter or not
