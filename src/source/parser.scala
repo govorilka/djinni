@@ -19,7 +19,8 @@ package djinni
 import java.io.{File, FileNotFoundException, InputStreamReader, FileInputStream, Writer}
 
 import djinni.ast.Interface.Method
-import djinni.ast.Record.DerivingType.DerivingType
+import djinni.ast.Record.RecordDeriving.RecordDeriving
+import djinni.ast.Enum.EnumDeriving.EnumDeriving
 import djinni.syntax._
 import djinni.ast._
 import java.util.{Map => JMap}
@@ -108,22 +109,22 @@ private object IdlParser extends RegexParsers {
   def typeDef: Parser[TypeDef] = record | enum | flags | interface | privateInterface
 
   def recordHeader = "record" ~> extRecord
-  def record: Parser[Record] = recordHeader ~ bracesList(field | const) ~ opt(deriving) ^^ {
+  def record: Parser[Record] = recordHeader ~ bracesList(field | const) ~ opt(recordDeriving) ^^ {
     case ext~items~deriving => {
       val fields = items collect {case f: Field => f}
       val consts = items collect {case c: Const => c}
-      val derivingTypes = deriving.getOrElse(Set[DerivingType]())
+      val derivingTypes = deriving.getOrElse(Set[RecordDeriving]())
       Record(ext, fields, consts, derivingTypes)
     }
   }
   def field: Parser[Field] = doc ~ ident ~ ":" ~ typeRef ^^ {
     case doc~ident~_~typeRef => Field(ident, typeRef, doc)
   }
-  def deriving: Parser[Set[DerivingType]] = "deriving" ~> parens(rep1sepend(ident, ",")) ^^ {
+  def recordDeriving: Parser[Set[RecordDeriving]] = "deriving" ~> parens(rep1sepend(ident, ",")) ^^ {
     _.map(ident => ident.name match {
-      case "eq" => Record.DerivingType.Eq
-      case "ord" => Record.DerivingType.Ord
-      case "parcelable" => Record.DerivingType.AndroidParcelable
+      case "eq" => Record.RecordDeriving.Eq
+      case "ord" => Record.RecordDeriving.Ord
+      case "parcelable" => Record.RecordDeriving.AndroidParcelable
       case _ => return err( s"""Unrecognized deriving type "${ident.name}"""")
     }).toSet
   }
@@ -133,11 +134,14 @@ private object IdlParser extends RegexParsers {
 
   def enumHeader = "enum".r
   def flagsHeader = "flags".r
-  def enum: Parser[Enum] = enumHeader ~> bracesList(enumOption) ^^ {
-    case items => Enum(items, false)
+  def enum: Parser[Enum] = enumHeader ~> bracesList(enumOption) ~ opt(enumDeriving) ^^ {
+    case items~deriving => {
+      val derivingTypes = deriving.getOrElse(Set[EnumDeriving]())
+      Enum(items, derivingTypes, false)
+    }
   }
   def flags: Parser[Enum] = flagsHeader ~> bracesList(flagsOption) ^^ {
-    case items => Enum(items, true)
+    case items => Enum(items, Set[EnumDeriving](), true)
   }
 
   def enumOption: Parser[Enum.Option] = doc ~ ident ^^ {
@@ -147,6 +151,12 @@ private object IdlParser extends RegexParsers {
     case doc~ident~None => Enum.Option(ident, doc, None)
     case doc~ident~Some("all") => Enum.Option(ident, doc, Some(Enum.SpecialFlag.AllFlags))
     case doc~ident~Some("none") => Enum.Option(ident, doc, Some(Enum.SpecialFlag.NoFlags))
+  }
+  def enumDeriving: Parser[Set[EnumDeriving]] = "deriving" ~> parens(rep1sepend(ident, ",")) ^^ {
+    _.map(ident => ident.name match {
+      case "parcelable" => Enum.EnumDeriving.AndroidParcelable
+      case _ => return err( s"""Unrecognized deriving type "${ident.name}"""")
+    }).toSet
   }
 
   def interfaceHeader = "interface" ~> extInterface
@@ -180,9 +190,9 @@ private object IdlParser extends RegexParsers {
   }
 
   def externTypeDecl: Parser[TypeDef] = externEnum | externFlags | externInterface | externRecord | externPrivateInterface
-  def externEnum: Parser[Enum] = enumHeader ^^ { case _ => Enum(List(), false) }
-  def externFlags: Parser[Enum] = flagsHeader ^^ { case _ => Enum(List(), true) }
-  def externRecord: Parser[Record] = recordHeader ~ opt(deriving) ^^ { case ext~deriving => Record(ext, List(), List(), deriving.getOrElse(Set[DerivingType]())) }
+  def externEnum: Parser[Enum] = enumHeader ^^ { case _ => Enum(List(), Set[EnumDeriving](), false) }
+  def externFlags: Parser[Enum] = flagsHeader ^^ { case _ => Enum(List(), Set[EnumDeriving](), true) }
+  def externRecord: Parser[Record] = recordHeader ~ opt(recordDeriving) ^^ { case ext~deriving => Record(ext, List(), List(), deriving.getOrElse(Set[RecordDeriving]())) }
   def externInterface: Parser[Interface] = interfaceHeader ^^ { case ext => Interface(ext, List(), List()) }
   def externPrivateInterface: Parser[PrivateInterface] = privateInterfaceHeader ^^ { case ext => PrivateInterface("", "") }
 

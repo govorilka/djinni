@@ -3,12 +3,37 @@
 
 package com.dropbox.textsort;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import javax.annotation.CheckForNull;
 import javax.annotation.Nonnull;
 
-/*package*/ enum SortOrder {
+/*package*/ enum SortOrder implements Parcelable {
     ASCENDING,
     DESCENDING,
     RANDOM,
     ;
+
+    @Override
+    public void writeToParcel(Parcel out, int flags) {
+        dest.writeString(name());
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    public static final Creator<SortOrder> CREATOR = new Creator<SortOrder>()
+    {
+        @Override
+        public SortOrder createFromParcel(Parcel in) {
+            return SortOrder.valueOf(in.readString());
+        }
+
+        @Override
+        public SortOrder[] newArray(int size) {
+            return new SortOrder[size];
+        }
+    };
 }

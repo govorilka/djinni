@@ -18,7 +18,6 @@ package djinni
 
 import java.io._
 
-import djinni.ast.Record.DerivingType
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._

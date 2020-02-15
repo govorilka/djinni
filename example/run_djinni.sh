@@ -58,6 +58,7 @@ fi
     --java-generate-interfaces true \
     --java-nullable-annotation "javax.annotation.CheckForNull" \
     --java-nonnull-annotation "javax.annotation.Nonnull" \
+    --java-implement-android-os-parcelable "true" \
     --ident-java-field mFooBar \
     \
     --cpp-out "$temp_out/cpp" \

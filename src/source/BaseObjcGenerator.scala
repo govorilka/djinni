@@ -16,7 +16,7 @@
 
 package djinni
 
-import djinni.ast.Record.DerivingType
+import djinni.ast.Record.RecordDeriving
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._

@@ -17,7 +17,8 @@
 package djinni.ast
 
 import java.io.File
-import djinni.ast.Record.DerivingType.DerivingType
+import djinni.ast.Record.RecordDeriving.RecordDeriving
+import djinni.ast.Enum.EnumDeriving.EnumDeriving
 import djinni.meta.MExpr
 import djinni.syntax.Loc
 
@@ -61,8 +62,12 @@ sealed abstract class TypeDef
 
 case class Const(ident: Ident, ty: TypeRef, value: Any, doc: Doc)
 
-case class Enum(options: Seq[Enum.Option], flags: Boolean) extends TypeDef
+case class Enum(options: Seq[Enum.Option], derivingTypes: Set[EnumDeriving], flags: Boolean) extends TypeDef
 object Enum {
+  object EnumDeriving extends Enumeration {
+    type EnumDeriving = Value
+    val AndroidParcelable = Value
+  }
   object SpecialFlag extends Enumeration {
     type SpecialFlag = Value
     val NoFlags, AllFlags = Value
@@ -71,10 +76,10 @@ object Enum {
   case class Option(ident: Ident, doc: Doc, specialFlag: scala.Option[SpecialFlag])
 }
 
-case class Record(ext: Ext, fields: Seq[Field], consts: Seq[Const], derivingTypes: Set[DerivingType]) extends TypeDef
+case class Record(ext: Ext, fields: Seq[Field], consts: Seq[Const], derivingTypes: Set[RecordDeriving]) extends TypeDef
 object Record {
-  object DerivingType extends Enumeration {
-    type DerivingType = Value
+  object RecordDeriving extends Enumeration {
+    type RecordDeriving = Value
     val Eq, Ord, AndroidParcelable = Value
   }
 }
