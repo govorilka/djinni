@@ -66,7 +66,7 @@ case class Enum(options: Seq[Enum.Option], derivingTypes: Set[EnumDeriving], fla
 object Enum {
   object EnumDeriving extends Enumeration {
     type EnumDeriving = Value
-    val AndroidParcelable = Value
+    val AndroidParcelable, UiRes = Value
   }
   object SpecialFlag extends Enumeration {
     type SpecialFlag = Value

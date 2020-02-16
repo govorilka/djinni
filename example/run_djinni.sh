@@ -60,6 +60,8 @@ fi
     --java-nonnull-annotation "javax.annotation.Nonnull" \
     --java-implement-android-os-parcelable "true" \
     --ident-java-field mFooBar \
+    --android-resource-class "com.dropbox.textsort.R" \
+    --ident-android-res foo_bar \
     \
     --cpp-out "$temp_out/cpp" \
     --cpp-namespace textsort \

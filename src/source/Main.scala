@@ -47,6 +47,7 @@ object Main {
     var javaNonnullAnnotation: Option[String] = None
     var javaImplementAndroidOsParcelable : Boolean = false
     var javaUseFinalForRecord: Boolean = true
+    var javaAndroidResourceClass: Option[String] = None
     var jniOutFolder: Option[File] = None
     var jniHeaderOutFolderOptional: Option[File] = None
     var jniNamespace: String = "djinni_generated"
@@ -125,6 +126,8 @@ object Main {
         .text("all generated java classes will implement the interface android.os.Parcelable")
       opt[Boolean]("java-use-final-for-record").valueName("<use-final-for-record>").foreach(x => javaUseFinalForRecord = x)
         .text("Whether generated Java classes for records should be marked 'final' (default: true). ")
+      opt[String]("android-resource-class").valueName("<nullable-resource-class>").foreach(x => javaAndroidResourceClass = Some(x))
+        .text("Android resource class")
       note("")
       opt[File]("cpp-out").valueName("<out-folder>").foreach(x => cppOutFolder = Some(x))
         .text("The output folder for C++ files (Generator disabled if unspecified).")
@@ -218,6 +221,7 @@ object Main {
       identStyle("ident-java-enum",      c => { javaIdentStyle = javaIdentStyle.copy(enum = c) })
       identStyle("ident-java-field",     c => { javaIdentStyle = javaIdentStyle.copy(field = c) })
       identStyle("ident-java-type",      c => { javaIdentStyle = javaIdentStyle.copy(ty = c) })
+      identStyle("ident-android-res",    c => { javaIdentStyle = javaIdentStyle.copy(resource = c) })
       identStyle("ident-cpp-enum",       c => { cppIdentStyle = cppIdentStyle.copy(enum = c) })
       identStyle("ident-cpp-field",      c => { cppIdentStyle = cppIdentStyle.copy(field = c) })
       identStyle("ident-cpp-method",     c => { cppIdentStyle = cppIdentStyle.copy(method = c) })
@@ -327,6 +331,7 @@ object Main {
       javaNonnullAnnotation,
       javaImplementAndroidOsParcelable,
       javaUseFinalForRecord,
+      javaAndroidResourceClass,
       cppOutFolder,
       cppHeaderOutFolder,
       cppIncludePrefix,

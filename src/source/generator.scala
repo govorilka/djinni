@@ -41,6 +41,7 @@ package object generatorTools {
                    javaNonnullAnnotation: Option[String],
                    javaImplementAndroidOsParcelable: Boolean,
                    javaUseFinalForRecord: Boolean,
+                   javaAndroidResourceClass: Option[String],
                    cppOutFolder: Option[File],
                    cppHeaderOutFolder: Option[File],
                    cppIncludePrefix: String,
@@ -102,7 +103,7 @@ package object generatorTools {
 
   case class JavaIdentStyle(ty: IdentConverter, typeParam: IdentConverter,
                             method: IdentConverter, field: IdentConverter, local: IdentConverter,
-                            enum: IdentConverter, const: IdentConverter)
+                            enum: IdentConverter, const: IdentConverter, resource: IdentConverter)
 
   case class ObjcIdentStyle(ty: IdentConverter, typeParam: IdentConverter,
                             method: IdentConverter, field: IdentConverter, local: IdentConverter,
@@ -119,7 +120,7 @@ package object generatorTools {
     val underCaps = (s: String) => s.toUpperCase
     val prefix = (prefix: String, suffix: IdentConverter) => (s: String) => prefix + suffix(s)
 
-    val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps)
+    val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps, underLower)
     val cppDefault = CppIdentStyle(camelUpper, camelUpper, camelUpper, camelUpper, underLower, underLower, underLower, underCaps, underCaps)
     val objcDefault = ObjcIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, camelUpper, camelUpper)
 

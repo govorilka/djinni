@@ -155,6 +155,7 @@ private object IdlParser extends RegexParsers {
   def enumDeriving: Parser[Set[EnumDeriving]] = "deriving" ~> parens(rep1sepend(ident, ",")) ^^ {
     _.map(ident => ident.name match {
       case "parcelable" => Enum.EnumDeriving.AndroidParcelable
+      case "uires" => Enum.EnumDeriving.UiRes
       case _ => return err( s"""Unrecognized deriving type "${ident.name}"""")
     }).toSet
   }

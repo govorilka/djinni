@@ -31,14 +31,20 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   val javaNullableAnnotation = spec.javaNullableAnnotation.map(pkg => '@' + pkg.split("\\.").last)
   val javaNonnullAnnotation = spec.javaNonnullAnnotation.map(pkg => '@' + pkg.split("\\.").last)
   val javaClassAccessModifierString = JavaAccessModifier.getCodeGenerationString(spec.javaClassAccessModifier)
+  val javaPackage = spec.javaPackage.getOrElse("")
+  val androidResourceClass = spec.javaAndroidResourceClass.getOrElse("")
   val marshal = new JavaMarshal(spec)
 
-  class JavaRefs() {
+  class JavaRefs(td: TypeDef) {
     var java = mutable.TreeSet[String]()
 
-    spec.javaAnnotation.foreach(pkg => java.add(pkg))
-    spec.javaNullableAnnotation.foreach(pkg => java.add(pkg))
-    spec.javaNonnullAnnotation.foreach(pkg => java.add(pkg))
+    td match {
+      case Enum(_, _, _) =>
+      case _ =>
+        spec.javaAnnotation.foreach(pkg => java.add(pkg))
+        spec.javaNullableAnnotation.foreach(pkg => java.add(pkg))
+        spec.javaNonnullAnnotation.foreach(pkg => java.add(pkg))
+    }
 
     def find(ty: TypeRef) { find(ty.resolved) }
     def find(tm: MExpr) {
@@ -110,9 +116,19 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateEnum(origin: String, ident: Ident, doc: Doc, e: Enum) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(e)
     val self = marshal.typename(ident.name, e)
     val interfaces = scala.collection.mutable.ArrayBuffer[String]()
+
+    if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.UiRes)) {
+      val index = androidResourceClass.indexOf(".R")
+      val resourcePackage = androidResourceClass.substring(0, index)
+      if (javaPackage != resourcePackage)
+        refs.java += androidResourceClass
+
+      refs.java += "androidx.annotation.DrawableRes"
+      refs.java += "androidx.annotation.StringRes"
+    }
 
     if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable)) {
       refs.java += "android.os.Parcel"
@@ -132,6 +148,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
         }
         w.wl(";")
 
+        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.UiRes))
+          writeUiResourcesUtils(w, ident, e);
+
         if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable))
           writeParcelable(w, self, e);
       }
@@ -139,7 +158,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateInterface(origin: String, ident: Ident, doc: Doc, typeParams: Seq[TypeParam], i: Interface) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(i)
 
     i.methods.map(m => {
       m.params.map(p => refs.find(p.ty))
@@ -265,7 +284,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateRecord(origin: String, ident: Ident, doc: Doc, params: Seq[TypeParam], r: Record) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(r)
     r.fields.foreach(f => refs.find(f.ty))
 
     val javaName = if (r.ext.java) (ident.name + "_base") else ident.name
@@ -708,4 +727,38 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     }
   }
 
+  // UI resources utils
+  def writeUiResourcesUtils(w: IndentWriter, ident: Ident, e: Enum) = {
+    w.wl
+    w.wl("@Override")
+    w.w("public @StringRes int getLabelId()").braced {
+      w.wl(s"switch(this)").braced {
+        for (o <- normalEnumOptions(e)) {
+          w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+            val res = s"${ident.name}_${o.ident.name}";
+            w.wl(s"return R.string.${idJava.resource(res)};")
+          }
+        }
+        w.wl("default:").nested {
+          w.wl(s"return 0;")
+        }
+      }
+    }
+
+    w.wl
+    w.wl("@Override")
+    w.w("public @DrawableRes int getIconId()").braced {
+      w.wl(s"switch(this)").braced {
+        for (o <- normalEnumOptions(e)) {
+          w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+            val res = s"${ident.name}_${o.ident.name}";
+            w.wl(s"return R.drawable.${idJava.resource(res)};")
+          }
+        }
+        w.wl("default:").nested {
+          w.wl(s"return 0;")
+        }
+      }
+    }
+  }
 }
