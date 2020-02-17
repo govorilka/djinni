@@ -55,8 +55,8 @@ class JNIGenerator(spec: Spec) extends Generator(spec) {
       find(tm.base)
     }
     def find(m: Meta) = for(r <- jniMarshal.references(m, ident)) r match {
-      case ImportRef(arg) => jniCpp.add("#include " + arg)
-      case _ =>
+      case CppIncludeRef(arg) => jniCpp.add("#include " + arg)
+      case _ => throw new AssertionError("Unreachable")
     }
   }
 

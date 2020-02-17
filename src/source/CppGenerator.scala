@@ -44,13 +44,15 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
     }
     def find(m: Meta, forwardDeclareOnly : Boolean) = {
       for(r <- marshal.hppReferences(m, name, forwardDeclareOnly)) r match {
-        case ImportRef(arg) => hpp.add("#include " + arg)
+        case CppIncludeRef(arg) => hpp.add("#include " + arg)
         case DeclRef(decl, Some(spec.cppNamespace)) => hppFwds.add(decl)
         case DeclRef(_, _) =>
+        case _ => throw new AssertionError("Unreachable")
       }
       for(r <- marshal.cppReferences(m, name, forwardDeclareOnly)) r match {
-        case ImportRef(arg) => cpp.add("#include " + arg)
+        case CppIncludeRef(arg) => cpp.add("#include " + arg)
         case DeclRef(_, _) =>
+        case _ => throw new AssertionError("Unreachable")
       }
     }
   }

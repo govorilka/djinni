@@ -244,6 +244,7 @@ package object generatorTools {
   sealed abstract class SymbolReference
   case class ImportRef(arg: String) extends SymbolReference // Already contains <> or "" in C contexts
   case class DeclRef(decl: String, namespace: Option[String]) extends SymbolReference
+  case class CppIncludeRef(arg: String) extends SymbolReference
 }
 
 object Generator {

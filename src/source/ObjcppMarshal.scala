@@ -31,6 +31,8 @@ class ObjcppMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   def references(m: Meta): Seq[SymbolReference] = m match {
+    case MOptional =>
+      List(ImportRef(q(spec.objcBaseLibIncludePrefix + "DJIMarshal+Private.h")), CppIncludeRef(spec.cppOptionalHeader))
     case o: MOpaque =>
       List(ImportRef(q(spec.objcBaseLibIncludePrefix + "DJIMarshal+Private.h")))
     case d: MDef => d.body match {

@@ -46,7 +46,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     }
     def find(m: Meta) = for(r <- marshal.references(m)) r match {
       case ImportRef(arg) => java.add(arg)
-      case _ =>
+      case _ => throw new AssertionError("Unreachable")
     }
   }
 
