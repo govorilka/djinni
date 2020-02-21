@@ -120,14 +120,18 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     val self = marshal.typename(ident.name, e)
     val interfaces = scala.collection.mutable.ArrayBuffer[String]()
 
-    if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.UiRes)) {
+    if (!androidResourceClass.isEmpty() &&
+       (e.derivingTypes.contains(EnumDeriving.Labels) || e.derivingTypes.contains(EnumDeriving.Icons))) {
       val index = androidResourceClass.indexOf(".R")
       val resourcePackage = androidResourceClass.substring(0, index)
       if (javaPackage != resourcePackage)
         refs.java += androidResourceClass
 
-      refs.java += "androidx.annotation.DrawableRes"
-      refs.java += "androidx.annotation.StringRes"
+      if (e.derivingTypes.contains(EnumDeriving.Labels))
+        refs.java += "androidx.annotation.StringRes"
+
+      if (e.derivingTypes.contains(EnumDeriving.Icons))
+        refs.java += "androidx.annotation.DrawableRes"
     }
 
     if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable)) {
@@ -148,8 +152,39 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
         }
         w.wl(";")
 
-        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.UiRes))
-          writeUiResourcesUtils(w, ident, e);
+        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.Labels)) {
+          w.wl
+          w.w("public @StringRes int getLabelId()").braced {
+            w.wl(s"switch(this)").braced {
+              for (o <- normalEnumOptions(e)) {
+                w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+                  val res = s"${ident.name}_${o.ident.name}";
+                  w.wl(s"return R.string.${idJava.resource(res)};")
+                }
+              }
+              w.wl("default:").nested {
+                w.wl(s"return 0;")
+              }
+            }
+          }
+        }
+
+        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.Icons)) {
+          w.wl
+          w.w("public @DrawableRes int getIconId()").braced {
+            w.wl(s"switch(this)").braced {
+              for (o <- normalEnumOptions(e)) {
+                w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+                  val res = s"${ident.name}_${o.ident.name}";
+                  w.wl(s"return R.drawable.${idJava.resource(res)};")
+                }
+              }
+              w.wl("default:").nested {
+                w.wl(s"return 0;")
+              }
+            }
+          }
+        }
 
         if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable))
           writeParcelable(w, self, e);
@@ -723,39 +758,6 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
       w.wl("@Override")
       w.w(s"public $self[] newArray(int size)").braced {
         w.wl(s"return new $self[size];")
-      }
-    }
-  }
-
-  // UI resources utils
-  def writeUiResourcesUtils(w: IndentWriter, ident: Ident, e: Enum) = {
-    w.wl
-    w.w("public @StringRes int getLabelId()").braced {
-      w.wl(s"switch(this)").braced {
-        for (o <- normalEnumOptions(e)) {
-          w.wl(s"case ${idJava.enum(o.ident)}:").nested {
-            val res = s"${ident.name}_${o.ident.name}";
-            w.wl(s"return R.string.${idJava.resource(res)};")
-          }
-        }
-        w.wl("default:").nested {
-          w.wl(s"return 0;")
-        }
-      }
-    }
-
-    w.wl
-    w.w("public @DrawableRes int getIconId()").braced {
-      w.wl(s"switch(this)").braced {
-        for (o <- normalEnumOptions(e)) {
-          w.wl(s"case ${idJava.enum(o.ident)}:").nested {
-            val res = s"${ident.name}_${o.ident.name}";
-            w.wl(s"return R.drawable.${idJava.resource(res)};")
-          }
-        }
-        w.wl("default:").nested {
-          w.wl(s"return 0;")
-        }
       }
     }
   }

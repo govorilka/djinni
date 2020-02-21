@@ -14,7 +14,6 @@ import androidx.annotation.StringRes;
     RANDOM,
     ;
 
-    @Override
     public @StringRes int getLabelId() {
         switch(this)
         {
@@ -29,7 +28,6 @@ import androidx.annotation.StringRes;
         }
     }
 
-    @Override
     public @DrawableRes int getIconId() {
         switch(this)
         {
@@ -46,7 +44,7 @@ import androidx.annotation.StringRes;
 
     @Override
     public void writeToParcel(Parcel out, int flags) {
-        dest.writeString(name());
+        out.writeString(name());
     }
 
     @Override

@@ -6,7 +6,7 @@ sort_order = enum {
     ascending;
     descending;
     random;
-} deriving (parcelable, uires)
+} deriving (parcelable, labels, icons)
 
 cpp_context = private_interface {
     typeName: "std::shared_ptr<Context>";
