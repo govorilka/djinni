@@ -113,8 +113,8 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
       case i: Interface => "interface" + ext(i.ext)
       case r: Record => "record" + ext(r.ext) + deriving(r)
       case p: PrivateInterface => "private_interface"
-      case Enum(_, false) => "enum"
-      case Enum(_, true) => "flags"
+      case Enum(_, _, false) => "enum"
+      case Enum(_, _, true) => "flags"
     }
   }
 

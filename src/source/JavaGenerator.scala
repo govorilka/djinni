@@ -702,7 +702,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     w.wl
     w.wl("@Override")
     w.w("public void writeToParcel(Parcel out, int flags)").braced {
-      w.wl(s"dest.writeString(name());")
+      w.wl(s"out.writeString(name());")
     }
 
     // describeContents
@@ -730,7 +730,6 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   // UI resources utils
   def writeUiResourcesUtils(w: IndentWriter, ident: Ident, e: Enum) = {
     w.wl
-    w.wl("@Override")
     w.w("public @StringRes int getLabelId()").braced {
       w.wl(s"switch(this)").braced {
         for (o <- normalEnumOptions(e)) {
@@ -746,7 +745,6 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     }
 
     w.wl
-    w.wl("@Override")
     w.w("public @DrawableRes int getIconId()").braced {
       w.wl(s"switch(this)").braced {
         for (o <- normalEnumOptions(e)) {
