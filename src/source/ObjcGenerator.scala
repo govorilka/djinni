@@ -18,7 +18,7 @@ package djinni
 
 import java.io.File
 
-import djinni.ast.Record.DerivingType
+import djinni.ast.Record.RecordDeriving
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._
@@ -42,6 +42,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
     def find(m: Meta) = for(r <- marshal.references(m)) r match {
       case ImportRef(arg) => header.add("#import " + arg)
       case DeclRef(decl, _) => header.add(decl)
+      case _ => throw new AssertionError("Unreachable")
     }
   }
 
@@ -201,7 +202,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
         val nullability = marshal.nullability(f.ty.resolved).fold("")(", " + _)
         w.wl(s"@property (nonatomic, readonly${nullability}) ${marshal.fqFieldType(f.ty)} ${idObjc.field(f.ident)};")
       }
-      if (r.derivingTypes.contains(DerivingType.Ord)) {
+      if (r.derivingTypes.contains(RecordDeriving.Ord)) {
         w.wl
         w.wl(s"- (NSComparisonResult)compare:(nonnull $self *)other;")
       }
@@ -258,7 +259,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
 
       if (r.consts.nonEmpty) generateObjcConstants(w, r.consts, noBaseSelf, ObjcConstantType.ConstMethod)
 
-      if (r.derivingTypes.contains(DerivingType.Eq)) {
+      if (r.derivingTypes.contains(RecordDeriving.Eq)) {
         w.wl("- (BOOL)isEqual:(id)other")
         w.braced {
           w.w(s"if (![other isKindOfClass:[$self class]])").braced {
@@ -351,7 +352,7 @@ class ObjcGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
         }
         w.wl("}")
       }
-      if (r.derivingTypes.contains(DerivingType.Ord)) {
+      if (r.derivingTypes.contains(RecordDeriving.Ord)) {
         w.wl(s"- (NSComparisonResult)compare:($self *)other")
         w.braced {
           w.wl("NSComparisonResult tempResult;")

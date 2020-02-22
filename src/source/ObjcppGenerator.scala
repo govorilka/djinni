@@ -42,7 +42,8 @@ class ObjcppGenerator(spec: Spec) extends BaseObjcGenerator(spec) {
     }
     def find(m: Meta) = for(r <- objcppMarshal.references(m)) r match {
       case ImportRef(arg) => body.add("#import " + arg)
-      case _ =>
+      case CppIncludeRef(arg) => body.add("#include " + arg)
+      case _ => throw new AssertionError("Unreachable")
     }
   }
 

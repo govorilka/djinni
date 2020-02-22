@@ -71,8 +71,8 @@ class JavaMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   def isEnumFlags(m: Meta): Boolean = m match {
-    case MDef(_, _, Enum(_, true)) => true
-    case MExtern(_, _, Enum(_, true), _, _, _, _, _) => true
+    case MDef(_, _, Enum(_, _, true)) => true
+    case MExtern(_, _, Enum(_, _, true), _, _, _, _, _) => true
     case _ => false
   }
   def isEnumFlags(tm: MExpr): Boolean = tm.base match {

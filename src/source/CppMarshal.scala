@@ -51,23 +51,23 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
 
   def hppReferences(m: Meta, exclude: String, forwardDeclareOnly: Boolean): Seq[SymbolReference] = m match {
     case p: MPrimitive => p.idlName match {
-      case "i8" | "i16" | "i32" | "i64" => List(ImportRef("<cstdint>"))
+      case "i8" | "i16" | "i32" | "i64" => List(CppIncludeRef("<cstdint>"))
       case _ => List()
     }
-    case MString => List(ImportRef("<string>"))
-    case MDate => List(ImportRef("<chrono>"))
-    case MBinary => List(ImportRef("<vector>"), ImportRef("<cstdint>"))
-    case MOptional => List(ImportRef(spec.cppOptionalHeader))
-    case MList => List(ImportRef("<vector>"))
-    case MSet => List(ImportRef("<unordered_set>"))
-    case MMap => List(ImportRef("<unordered_map>"))
+    case MString => List(CppIncludeRef("<string>"))
+    case MDate => List(CppIncludeRef("<chrono>"))
+    case MBinary => List(CppIncludeRef("<vector>"), CppIncludeRef("<cstdint>"))
+    case MOptional => List(CppIncludeRef(spec.cppOptionalHeader))
+    case MList => List(CppIncludeRef("<vector>"))
+    case MSet => List(CppIncludeRef("<unordered_set>"))
+    case MMap => List(CppIncludeRef("<unordered_map>"))
     case d: MDef => d.body match {
       case r: Record =>
         if (d.name != exclude) {
           if (forwardDeclareOnly) {
             List(DeclRef(s"struct ${typename(d.name, d.body)};", Some(spec.cppNamespace)))
           } else {
-            List(ImportRef(include(d.name, d.body)))
+            List(CppIncludeRef(include(d.name, d.body)))
           }
         } else {
           List()
@@ -78,29 +78,29 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
             val underlyingType = if(e.flags) " : unsigned" else ""
             List(DeclRef(s"enum class ${typename(d.name, d.body)}${underlyingType};", Some(spec.cppNamespace)))
           } else {
-            List(ImportRef(include(d.name, d.body)))
+            List(CppIncludeRef(include(d.name, d.body)))
           }
         } else {
           List()
         }
       case i: Interface =>
         val base = if (d.name != exclude) {
-          List(ImportRef("<memory>"), DeclRef(s"class ${typename(d.name, d.body)};", Some(spec.cppNamespace)))
+          List(CppIncludeRef("<memory>"), DeclRef(s"class ${typename(d.name, d.body)};", Some(spec.cppNamespace)))
         } else {
-          List(ImportRef("<memory>"))
+          List(CppIncludeRef("<memory>"))
         }
         spec.cppNnHeader match {
-          case Some(nnHdr) => ImportRef(nnHdr) :: base
+          case Some(nnHdr) => CppIncludeRef(nnHdr) :: base
           case _ => base
         }
-      case p: PrivateInterface => 
-        List(ImportRef(s"<${p.header}>"))
+      case p: PrivateInterface =>
+        List(CppIncludeRef(s"<${p.header}>"))
     }
     case e: MExtern => e.body match {
       // Do not forward declare extern types, they might be in arbitrary namespaces.
       // This isn't a problem as extern types cannot cause dependency cycles with types being generated here
-      case i: Interface => List(ImportRef("<memory>"), ImportRef(e.cpp.header))
-      case _ => List(ImportRef(e.cpp.header))
+      case i: Interface => List(CppIncludeRef("<memory>"), CppIncludeRef(e.cpp.header))
+      case _ => List(CppIncludeRef(e.cpp.header))
     }
     case p: MParam => List()
   }
@@ -114,13 +114,13 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
         case d: MDef => d.body match {
           case r: Record =>
             if (d.name != exclude) {
-              List(ImportRef(include(d.name, d.body)))
+              List(CppIncludeRef(include(d.name, d.body)))
             } else {
               List()
             }
           case e: Enum =>
             if (d.name != exclude) {
-              List(ImportRef(include(d.name, d.body)))
+              List(CppIncludeRef(include(d.name, d.body)))
             } else {
               List()
             }
@@ -137,12 +137,14 @@ class CppMarshal(spec: Spec) extends Marshal(spec) {
   }
 
   def include(ident: String, ty: TypeDef): String = {
-    val isExtendedRecord = ty match {
-      case r: Record => r.ext.cpp
-      case _ => false
+    ty match {
+      case p: PrivateInterface => p.header
+      case r: Record => 
+        val prefix = if (r.ext.cpp) spec.cppExtendedRecordIncludePrefix else spec.cppIncludePrefix
+        q(prefix + headerName(ident, ty))
+      case _ =>
+        q(spec.cppIncludePrefix + headerName(ident, ty))  
     }
-    val prefix = if (isExtendedRecord) spec.cppExtendedRecordIncludePrefix else spec.cppIncludePrefix
-    q(prefix + headerName(ident, ty))
   }
 
   private def toCppType(ty: TypeRef, namespace: Option[String] = None, scopeSymbols: Seq[String] = Seq()): String =

@@ -18,9 +18,8 @@ package djinni
 
 import java.util
 
-import djinni.ast.Record.DerivingType
-import djinni.ast.Record.DerivingType.DerivingType
-import djinni.ast.Record.DerivingType.DerivingType
+import djinni.ast.Record.RecordDeriving
+import djinni.ast.Record.RecordDeriving.RecordDeriving
 import djinni.syntax._
 import djinni.ast._
 import djinni.meta._
@@ -217,23 +216,23 @@ private def resolveRecord(scope: Scope, r: Record) {
     resolveRef(scope, f.ty)
     // Deriving Type Check
     if (r.ext.any())
-      if (r.derivingTypes.contains(DerivingType.Ord)) {
+      if (r.derivingTypes.contains(RecordDeriving.Ord)) {
         throw new Error(f.ident.loc, "Cannot safely implement Ord on a record that may be extended").toException
-      } else if (r.derivingTypes.contains(DerivingType.Eq)) {
+      } else if (r.derivingTypes.contains(RecordDeriving.Eq)) {
         throw new Error(f.ident.loc, "Cannot safely implement Eq on a record that may be extended").toException
       }
     f.ty.resolved.base match {
       case MBinary | MList | MSet | MMap =>
-        if (r.derivingTypes.contains(DerivingType.Ord))
+        if (r.derivingTypes.contains(RecordDeriving.Ord))
           throw new Error(f.ident.loc, "Cannot compare collections in Ord deriving (Java limitation)").toException
       case MString =>
       case MDate =>
       case MOptional =>
-        if (r.derivingTypes.contains(DerivingType.Ord))
+        if (r.derivingTypes.contains(RecordDeriving.Ord))
           throw new Error(f.ident.loc, "Cannot compare optional in Ord deriving").toException
       case t: MPrimitive => t.idlName match {
         case "bool" =>
-          if (r.derivingTypes.contains(DerivingType.Ord))
+          if (r.derivingTypes.contains(RecordDeriving.Ord))
             throw new Error(f.ident.loc, "Cannot compare booleans in Ord deriving").toException
         case _ =>
       }

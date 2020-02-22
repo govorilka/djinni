@@ -1,7 +1,7 @@
 package djinni
 
 import djinni.ast._
-import djinni.ast.Record.DerivingType.DerivingType
+import djinni.ast.Record.RecordDeriving.RecordDeriving
 import djinni.generatorTools._
 import djinni.meta._
 import djinni.writer.IndentWriter
@@ -103,18 +103,18 @@ class YamlGenerator(spec: Spec) extends Generator(spec) {
         ""
       } else {
         r.derivingTypes.collect {
-          case Record.DerivingType.Eq => "eq"
-          case Record.DerivingType.Ord => "ord"
-          case Record.DerivingType.AndroidParcelable => "parcelable"
+          case Record.RecordDeriving.Eq => "eq"
+          case Record.RecordDeriving.Ord => "ord"
+          case Record.RecordDeriving.AndroidParcelable => "parcelable"
         }.mkString(" deriving(", ", ", ")")
       }
     }
     td.body match {
       case i: Interface => "interface" + ext(i.ext)
       case r: Record => "record" + ext(r.ext) + deriving(r)
-      case p: PrivateInterface => "privateInterface"
-      case Enum(_, false) => "enum"
-      case Enum(_, true) => "flags"
+      case p: PrivateInterface => "private_interface"
+      case Enum(_, _, false) => "enum"
+      case Enum(_, _, true) => "flags"
     }
   }
 

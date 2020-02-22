@@ -18,7 +18,6 @@ package djinni
 
 import java.io._
 
-import djinni.ast.Record.DerivingType
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._
@@ -42,6 +41,7 @@ package object generatorTools {
                    javaNonnullAnnotation: Option[String],
                    javaImplementAndroidOsParcelable: Boolean,
                    javaUseFinalForRecord: Boolean,
+                   javaAndroidResourceClass: Option[String],
                    cppOutFolder: Option[File],
                    cppHeaderOutFolder: Option[File],
                    cppIncludePrefix: String,
@@ -103,7 +103,7 @@ package object generatorTools {
 
   case class JavaIdentStyle(ty: IdentConverter, typeParam: IdentConverter,
                             method: IdentConverter, field: IdentConverter, local: IdentConverter,
-                            enum: IdentConverter, const: IdentConverter)
+                            enum: IdentConverter, const: IdentConverter, resource: IdentConverter)
 
   case class ObjcIdentStyle(ty: IdentConverter, typeParam: IdentConverter,
                             method: IdentConverter, field: IdentConverter, local: IdentConverter,
@@ -120,7 +120,7 @@ package object generatorTools {
     val underCaps = (s: String) => s.toUpperCase
     val prefix = (prefix: String, suffix: IdentConverter) => (s: String) => prefix + suffix(s)
 
-    val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps)
+    val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps, underLower)
     val cppDefault = CppIdentStyle(camelUpper, camelUpper, camelUpper, camelUpper, underLower, underLower, underLower, underCaps, underCaps)
     val objcDefault = ObjcIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, camelUpper, camelUpper)
 
@@ -244,6 +244,7 @@ package object generatorTools {
   sealed abstract class SymbolReference
   case class ImportRef(arg: String) extends SymbolReference // Already contains <> or "" in C contexts
   case class DeclRef(decl: String, namespace: Option[String]) extends SymbolReference
+  case class CppIncludeRef(arg: String) extends SymbolReference
 }
 
 object Generator {

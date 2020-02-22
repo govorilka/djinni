@@ -16,7 +16,7 @@
 
 package djinni
 
-import djinni.ast.Record.DerivingType
+import djinni.ast.Record.RecordDeriving
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._
@@ -44,13 +44,15 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
     }
     def find(m: Meta, forwardDeclareOnly : Boolean) = {
       for(r <- marshal.hppReferences(m, name, forwardDeclareOnly)) r match {
-        case ImportRef(arg) => hpp.add("#include " + arg)
+        case CppIncludeRef(arg) => hpp.add("#include " + arg)
         case DeclRef(decl, Some(spec.cppNamespace)) => hppFwds.add(decl)
         case DeclRef(_, _) =>
+        case _ => throw new AssertionError("Unreachable")
       }
       for(r <- marshal.cppReferences(m, name, forwardDeclareOnly)) r match {
-        case ImportRef(arg) => cpp.add("#include " + arg)
+        case CppIncludeRef(arg) => cpp.add("#include " + arg)
         case DeclRef(_, _) =>
+        case _ => throw new AssertionError("Unreachable")
       }
     }
   }
@@ -216,17 +218,17 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
           w.wl(marshal.fieldType(f.ty) + " " + idCpp.field(f.ident) + ";")
         }
 
-        if (r.derivingTypes.contains(DerivingType.Eq)) {
+        if (r.derivingTypes.contains(RecordDeriving.Eq)) {
           w.wl
           w.wl(s"friend bool operator==(const $actualSelf& lhs, const $actualSelf& rhs);")
           w.wl(s"friend bool operator!=(const $actualSelf& lhs, const $actualSelf& rhs);")
         }
-        if (r.derivingTypes.contains(DerivingType.Ord)) {
+        if (r.derivingTypes.contains(RecordDeriving.Ord)) {
           w.wl
           w.wl(s"friend bool operator<(const $actualSelf& lhs, const $actualSelf& rhs);")
           w.wl(s"friend bool operator>(const $actualSelf& lhs, const $actualSelf& rhs);")
         }
-        if (r.derivingTypes.contains(DerivingType.Eq) && r.derivingTypes.contains(DerivingType.Ord)) {
+        if (r.derivingTypes.contains(RecordDeriving.Eq) && r.derivingTypes.contains(RecordDeriving.Ord)) {
           w.wl
           w.wl(s"friend bool operator<=(const $actualSelf& lhs, const $actualSelf& rhs);")
           w.wl(s"friend bool operator>=(const $actualSelf& lhs, const $actualSelf& rhs);")
@@ -262,11 +264,11 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
       writeHppFile(cppName, origin, refs.hpp, refs.hppFwds, writeCppPrototype)
     }
 
-    if (r.consts.nonEmpty || r.derivingTypes.contains(DerivingType.Eq) || r.derivingTypes.contains(DerivingType.Ord)) {
+    if (r.consts.nonEmpty || r.derivingTypes.contains(RecordDeriving.Eq) || r.derivingTypes.contains(RecordDeriving.Ord)) {
       writeCppFile(cppName, origin, refs.cpp, w => {
         generateCppConstants(w, r.consts, actualSelf)
 
-        if (r.derivingTypes.contains(DerivingType.Eq)) {
+        if (r.derivingTypes.contains(RecordDeriving.Eq)) {
           w.wl
           w.w(s"bool operator==(const $actualSelf& lhs, const $actualSelf& rhs)").braced {
             if(!r.fields.isEmpty) {
@@ -281,7 +283,7 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
             w.wl("return !(lhs == rhs);")
           }
         }
-        if (r.derivingTypes.contains(DerivingType.Ord)) {
+        if (r.derivingTypes.contains(RecordDeriving.Ord)) {
           w.wl
           w.w(s"bool operator<(const $actualSelf& lhs, const $actualSelf& rhs)").braced {
             for(f <- r.fields) {
@@ -299,7 +301,7 @@ class CppGenerator(spec: Spec) extends Generator(spec) {
             w.wl("return rhs < lhs;")
           }
         }
-        if (r.derivingTypes.contains(DerivingType.Eq) && r.derivingTypes.contains(DerivingType.Ord)) {
+        if (r.derivingTypes.contains(RecordDeriving.Eq) && r.derivingTypes.contains(RecordDeriving.Ord)) {
           w.wl
           w.w(s"bool operator<=(const $actualSelf& lhs, const $actualSelf& rhs)").braced {
             w.wl("return !(rhs < lhs);")

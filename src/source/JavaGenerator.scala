@@ -16,7 +16,8 @@
 
 package djinni
 
-import djinni.ast.Record.DerivingType
+import djinni.ast.Record.RecordDeriving
+import djinni.ast.Enum.EnumDeriving
 import djinni.ast._
 import djinni.generatorTools._
 import djinni.meta._
@@ -30,14 +31,20 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   val javaNullableAnnotation = spec.javaNullableAnnotation.map(pkg => '@' + pkg.split("\\.").last)
   val javaNonnullAnnotation = spec.javaNonnullAnnotation.map(pkg => '@' + pkg.split("\\.").last)
   val javaClassAccessModifierString = JavaAccessModifier.getCodeGenerationString(spec.javaClassAccessModifier)
+  val javaPackage = spec.javaPackage.getOrElse("")
+  val androidResourceClass = spec.javaAndroidResourceClass.getOrElse("")
   val marshal = new JavaMarshal(spec)
 
-  class JavaRefs() {
+  class JavaRefs(td: TypeDef) {
     var java = mutable.TreeSet[String]()
 
-    spec.javaAnnotation.foreach(pkg => java.add(pkg))
-    spec.javaNullableAnnotation.foreach(pkg => java.add(pkg))
-    spec.javaNonnullAnnotation.foreach(pkg => java.add(pkg))
+    td match {
+      case Enum(_, _, _) =>
+      case _ =>
+        spec.javaAnnotation.foreach(pkg => java.add(pkg))
+        spec.javaNullableAnnotation.foreach(pkg => java.add(pkg))
+        spec.javaNonnullAnnotation.foreach(pkg => java.add(pkg))
+    }
 
     def find(ty: TypeRef) { find(ty.resolved) }
     def find(tm: MExpr) {
@@ -46,7 +53,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     }
     def find(m: Meta) = for(r <- marshal.references(m)) r match {
       case ImportRef(arg) => java.add(arg)
-      case _ =>
+      case _ => throw new AssertionError("Unreachable")
     }
   }
 
@@ -109,23 +116,84 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateEnum(origin: String, ident: Ident, doc: Doc, e: Enum) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(e)
+    val self = marshal.typename(ident.name, e)
+    val interfaces = scala.collection.mutable.ArrayBuffer[String]()
 
-    writeJavaFile(ident, origin, refs.java, w => {
+    if (!androidResourceClass.isEmpty() &&
+       (e.derivingTypes.contains(EnumDeriving.Labels) || e.derivingTypes.contains(EnumDeriving.Icons))) {
+      val index = androidResourceClass.indexOf(".R")
+      val resourcePackage = androidResourceClass.substring(0, index)
+      if (javaPackage != resourcePackage)
+        refs.java += androidResourceClass
+
+      if (e.derivingTypes.contains(EnumDeriving.Labels))
+        refs.java += "androidx.annotation.StringRes"
+
+      if (e.derivingTypes.contains(EnumDeriving.Icons))
+        refs.java += "androidx.annotation.DrawableRes"
+    }
+
+    if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable)) {
+      refs.java += "android.os.Parcel"
+      refs.java += "android.os.Parcelable"
+      interfaces += "Parcelable"
+    }
+
+    writeJavaFile(ident, origin, refs.java, w => {    
+      val implementsSection = if (interfaces.isEmpty) "" else " implements " + interfaces.mkString(", ")
+
       writeDoc(w, doc)
       javaAnnotationHeader.foreach(w.wl)
-      w.w(s"${javaClassAccessModifierString}enum ${marshal.typename(ident, e)}").braced {
+      w.w(s"${javaClassAccessModifierString}enum ${marshal.typename(ident, e)}$implementsSection").braced {
         for (o <- normalEnumOptions(e)) {
           writeDoc(w, o.doc)
           w.wl(idJava.enum(o.ident) + ",")
         }
         w.wl(";")
+
+        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.Labels)) {
+          w.wl
+          w.w("public @StringRes int getLabelId()").braced {
+            w.wl(s"switch(this)").braced {
+              for (o <- normalEnumOptions(e)) {
+                w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+                  val res = s"${ident.name}_${o.ident.name}";
+                  w.wl(s"return R.string.${idJava.resource(res)};")
+                }
+              }
+              w.wl("default:").nested {
+                w.wl(s"return 0;")
+              }
+            }
+          }
+        }
+
+        if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.Icons)) {
+          w.wl
+          w.w("public @DrawableRes int getIconId()").braced {
+            w.wl(s"switch(this)").braced {
+              for (o <- normalEnumOptions(e)) {
+                w.wl(s"case ${idJava.enum(o.ident)}:").nested {
+                  val res = s"${ident.name}_${o.ident.name}";
+                  w.wl(s"return R.drawable.${idJava.resource(res)};")
+                }
+              }
+              w.wl("default:").nested {
+                w.wl(s"return 0;")
+              }
+            }
+          }
+        }
+
+        if (spec.javaImplementAndroidOsParcelable && e.derivingTypes.contains(EnumDeriving.AndroidParcelable))
+          writeParcelable(w, self, e);
       }
     })
   }
 
   override def generateInterface(origin: String, ident: Ident, doc: Doc, typeParams: Seq[TypeParam], i: Interface) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(i)
 
     i.methods.map(m => {
       m.params.map(p => refs.find(p.ty))
@@ -251,7 +319,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
   }
 
   override def generateRecord(origin: String, ident: Ident, doc: Doc, params: Seq[TypeParam], r: Record) {
-    val refs = new JavaRefs()
+    val refs = new JavaRefs(r)
     r.fields.foreach(f => refs.find(f.ty))
 
     val javaName = if (r.ext.java) (ident.name + "_base") else ident.name
@@ -287,7 +355,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
       return false
     }
 
-    if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(DerivingType.AndroidParcelable)
+    if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(RecordDeriving.AndroidParcelable)
       && recordContainsSets(r) && !recordContainsLists(r)) {
       // If the record is parcelable, doesn't contain any List but it contains a Set,
       // we need to manually import 'java.util.ArrayList'
@@ -302,9 +370,9 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
       val self = marshal.typename(javaName, r)
 
       val interfaces = scala.collection.mutable.ArrayBuffer[String]()
-      if (r.derivingTypes.contains(DerivingType.Ord))
+      if (r.derivingTypes.contains(RecordDeriving.Ord))
           interfaces += s"Comparable<$self>"
-      if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(DerivingType.AndroidParcelable))
+      if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(RecordDeriving.AndroidParcelable))
           interfaces += "android.os.Parcelable"
       val implementsSection = if (interfaces.isEmpty) "" else " implements " + interfaces.mkString(", ")
       w.w(s"${javaClassAccessModifierString}${javaFinal}class ${self + javaTypeParams(params)}$implementsSection").braced {
@@ -344,7 +412,7 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
           }
         }
 
-        if (r.derivingTypes.contains(DerivingType.Eq)) {
+        if (r.derivingTypes.contains(RecordDeriving.Eq)) {
           w.wl
           w.wl("@Override")
           val nullableAnnotation = javaNullableAnnotation.map(_ + " ").getOrElse("")
@@ -439,10 +507,10 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
         }
         w.wl
 
-        if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(DerivingType.AndroidParcelable))
+        if (spec.javaImplementAndroidOsParcelable && r.derivingTypes.contains(RecordDeriving.AndroidParcelable))
           writeParcelable(w, self, r);
 
-        if (r.derivingTypes.contains(DerivingType.Ord)) {
+        if (r.derivingTypes.contains(RecordDeriving.Ord)) {
           def primitiveCompare(ident: Ident) {
             w.wl(s"if (this.${idJava.field(ident)} < other.${idJava.field(ident)}) {").nested {
               w.wl(s"tempResult = -1;")
@@ -662,4 +730,35 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
     w.wl
   }
 
+  def writeParcelable(w: IndentWriter, self: String, e: Enum) = {
+    // Generates the methods to implement the interface android.os.Parcelable
+
+    // writeToParcel
+    w.wl
+    w.wl("@Override")
+    w.w("public void writeToParcel(Parcel out, int flags)").braced {
+      w.wl(s"out.writeString(name());")
+    }
+
+    // describeContents
+    w.wl
+    w.wl("@Override")
+    w.w("public int describeContents()").braced {
+      w.wl("return 0;")
+    }
+
+    // CREATOR
+    w.wl
+    w.wl(s"public static final Creator<$self> CREATOR = new Creator<$self>()").bracedSemi {
+      w.wl("@Override")
+      w.w(s"public $self createFromParcel(Parcel in)").braced {
+        w.wl(s"return $self.valueOf(in.readString());")
+      }
+      w.wl
+      w.wl("@Override")
+      w.w(s"public $self[] newArray(int size)").braced {
+        w.wl(s"return new $self[size];")
+      }
+    }
+  }
 }
