@@ -11,8 +11,7 @@ import androidx.annotation.StringRes;
 /*package*/ enum SortOrder implements Parcelable {
     ASCENDING,
     DESCENDING,
-    RANDOM,
-    ;
+    RANDOM;
 
     public @StringRes int getLabelId() {
         switch(this)

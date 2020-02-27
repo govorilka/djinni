@@ -146,11 +146,12 @@ class JavaGenerator(spec: Spec) extends Generator(spec) {
       writeDoc(w, doc)
       javaAnnotationHeader.foreach(w.wl)
       w.w(s"${javaClassAccessModifierString}enum ${marshal.typename(ident, e)}$implementsSection").braced {
-        for (o <- normalEnumOptions(e)) {
+        val items = normalEnumOptions(e)
+        for (o <- items) {
           writeDoc(w, o.doc)
-          w.wl(idJava.enum(o.ident) + ",")
+          val separator = if (o == items.last) ";" else ","
+          w.wl(idJava.enum(o.ident) + separator)
         }
-        w.wl(";")
 
         if (!androidResourceClass.isEmpty() && e.derivingTypes.contains(EnumDeriving.Labels)) {
           w.wl
