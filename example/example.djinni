@@ -2,7 +2,7 @@ item_list = record {
     items: list<string>;
 }
 
-sort_order = enum {
+SortOrder = enum {
     ascending;
     descending;
     random;
@@ -15,7 +15,7 @@ cpp_context = private_interface {
 
 sort_items = interface +c {
     # For the iOS / Android demo
-    sort(order: sort_order, items: item_list);
+    sort(order: SortOrder, items: item_list);
     static create_with_listener(listener: textbox_listener): sort_items;
 
     # For the localhost / command-line demo

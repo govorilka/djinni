@@ -65,7 +65,8 @@ fi
     \
     --cpp-out "$temp_out/cpp" \
     --cpp-namespace textsort \
-    --ident-cpp-enum-type foo_bar \
+    --ident-cpp-file FooBar \
+    --ident-cpp-enum-type FooBar \
     \
     --jni-out "$temp_out/jni" \
     --ident-jni-class NativeFooBar \

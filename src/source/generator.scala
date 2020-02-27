@@ -92,6 +92,7 @@ package object generatorTools {
   def preComma(s: String): String = {
     if (s.isEmpty) s else ", " + s
   }
+
   def q(s: String): String = '"' + s + '"'
   def firstUpper(token: String): String = if (token.isEmpty) token else token.charAt(0).toUpper + token.substring(1)
 
@@ -110,14 +111,15 @@ package object generatorTools {
                             enum: IdentConverter, const: IdentConverter)
 
   object IdentStyle {
-    val camelUpper = (s: String) => s.split('_').map(firstUpper).mkString
+    val camelUpper = (s: String) => split(s).map(firstUpper).mkString
     val camelLower = (s: String) => {
-      val parts = s.split('_')
-      parts.head + parts.tail.map(firstUpper).mkString
+      val parts = split(s)
+      parts.head.toLowerCase + parts.tail.map(firstUpper).mkString
     }
-    val underLower = (s: String) => s
-    val underUpper = (s: String) => s.split('_').map(firstUpper).mkString("_")
-    val underCaps = (s: String) => s.toUpperCase
+    val underLower = (s: String) => split(s).mkString("_").toLowerCase
+    val underUpper = (s: String) => split(s).map(firstUpper).mkString("_")
+    val underCaps = (s: String) => split(s).mkString("_").toUpperCase
+  
     val prefix = (prefix: String, suffix: IdentConverter) => (s: String) => prefix + suffix(s)
 
     val javaDefault = JavaIdentStyle(camelUpper, camelUpper, camelLower, camelLower, camelLower, underCaps, underCaps, underLower)
@@ -130,6 +132,8 @@ package object generatorTools {
       "foo_bar" -> underLower,
       "Foo_Bar" -> underUpper,
       "FOO_BAR" -> underCaps)
+    
+    def split (s: String): Array[String] = s.split("(?=[A-Z])|_")
 
     def infer(input: String): Option[IdentConverter] = {
       styles.foreach(e => {

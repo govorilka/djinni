@@ -7,7 +7,7 @@
 
 namespace textsort {
 
-enum class sort_order : int {
+enum class SortOrder : int {
     ASCENDING,
     DESCENDING,
     RANDOM,
@@ -18,8 +18,8 @@ enum class sort_order : int {
 namespace std {
 
 template <>
-struct hash<::textsort::sort_order> {
-    size_t operator()(::textsort::sort_order type) const {
+struct hash<::textsort::SortOrder> {
+    size_t operator()(::textsort::SortOrder type) const {
         return std::hash<int>()(static_cast<int>(type));
     }
 };

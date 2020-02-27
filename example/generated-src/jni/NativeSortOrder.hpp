@@ -3,14 +3,14 @@
 
 #pragma once
 
+#include "SortOrder.hpp"
 #include "djinni_support.hpp"
-#include "sort_order.hpp"
 
 namespace djinni_generated {
 
 class NativeSortOrder final : ::djinni::JniEnum {
 public:
-    using CppType = ::textsort::sort_order;
+    using CppType = ::textsort::SortOrder;
     using JniType = jobject;
 
     using Boxed = NativeSortOrder;

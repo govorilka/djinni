@@ -9,7 +9,7 @@
 namespace textsort {
 
 class TextboxListener;
-enum class sort_order;
+enum class SortOrder;
 struct ItemList;
 
 class SortItems {
@@ -17,7 +17,7 @@ public:
     virtual ~SortItems() {}
 
     /** For the iOS / Android demo */
-    virtual void sort(sort_order order, const ItemList & items) = 0;
+    virtual void sort(SortOrder order, const ItemList & items) = 0;
 
     static std::shared_ptr<SortItems> create_with_listener(const std::shared_ptr<TextboxListener> & listener);
 

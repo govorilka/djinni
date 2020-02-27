@@ -35,7 +35,7 @@ static_assert(__has_feature(objc_arc), "Djinni requires ARC to be enabled for th
 - (void)sort:(TXSSortOrder)order
        items:(nonnull TXSItemList *)items {
     try {
-        _cppRefHandle.get()->sort(::djinni::Enum<::textsort::sort_order, TXSSortOrder>::toCpp(order),
+        _cppRefHandle.get()->sort(::djinni::Enum<::textsort::SortOrder, TXSSortOrder>::toCpp(order),
                                   ::djinni_generated::ItemList::toCpp(items));
     } DJINNI_TRANSLATE_EXCEPTIONS()
 }
